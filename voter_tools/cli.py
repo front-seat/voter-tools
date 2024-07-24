@@ -2,12 +2,15 @@
 
 import csv
 import datetime
+import os
 import pathlib
 import sys
+import typing as t
+from xml.etree import ElementTree as ET
 
 import click
 
-from . import get_check_tool
+from . import get_check_tool, get_pa_staging_client
 
 
 @click.group()
@@ -199,6 +202,129 @@ def check_csv(
                 row[state_voter_id_header] = result.details.state_id
 
             writer.writerow(row)
+
+
+@vote.group()
+def pa():
+    """Commands for working with Pennsylvania voter registration."""
+    pass
+
+
+def _pa_api_key() -> str:
+    API_KEY = os.environ.get("PA_API_KEY")
+    if not API_KEY:
+        raise ValueError("PA_API_KEY environment variable must be set.")
+    return API_KEY
+
+
+@pa.command()
+def get_application_setup():
+    """Get the application setup."""
+    client = get_pa_staging_client(_pa_api_key())
+    setup = client.get_application_setup()
+    print(setup)
+
+
+@pa.command()
+def get_ballot_application_setup():
+    """Get the mail-in ballot setup."""
+    client = get_pa_staging_client(_pa_api_key())
+    setup = client.get_ballot_application_setup()
+    print(setup)
+
+
+@pa.command()
+def get_languages():
+    """Get the languages."""
+    client = get_pa_staging_client(_pa_api_key())
+    languages = client.get_languages()
+    print(languages)
+
+
+@pa.command()
+def get_xml_template():
+    """Get the XML template."""
+    client = get_pa_staging_client(_pa_api_key())
+    template = client.get_xml_template()
+    ET.indent(template)
+    ET.dump(template)
+
+
+@pa.command()
+def get_ballot_xml_template():
+    """Get the ballot XML template."""
+    client = get_pa_staging_client(_pa_api_key())
+    template = client.get_ballot_xml_template()
+    ET.indent(template)
+    ET.dump(template)
+
+
+@pa.command()
+def get_error_values():
+    """Get the error values."""
+    client = get_pa_staging_client(_pa_api_key())
+    errors = client.get_error_values()
+    print(errors)
+
+
+@pa.command()
+@click.argument("county")
+def get_municipalities(county: str):
+    """Get the municipalities for the given county."""
+    client = get_pa_staging_client(_pa_api_key())
+    municipalities = client.get_municipalities(county)
+    print(municipalities)
+
+
+@pa.command()
+@click.option("--xml", type=click.File("r"))
+def set_xml_application(xml: t.TextIO):
+    """Validate an arbitrary XML application structure and submit it if valid."""
+    from .pa.client import VoterApplication
+
+    xml_str = xml.read()
+    application = VoterApplication.from_xml(xml_str)
+    client = get_pa_staging_client(_pa_api_key())
+    response = client.set_application(application)
+    print(response)
+
+
+@pa.command()
+def set_test_application():
+    """Submit a test application with test data."""
+    import datetime
+
+    from .pa.client import (
+        BatchMode,
+        GenderChoice,
+        PoliticalPartyChoice,
+        RegistrationKind,
+        VoterApplication,
+        VoterApplicationRecord,
+    )
+
+    ar = VoterApplicationRecord(
+        batch=BatchMode.ALL_ERRORS,
+        first_name="Test",
+        last_name="Applicant1",
+        is_us_citizen=True,
+        will_be_18=True,
+        political_party=PoliticalPartyChoice.DEMOCRATIC,
+        gender=GenderChoice.MALE,
+        email="test.applicant1@example.com",
+        birth_date=datetime.date(1980, 1, 1),
+        registration_kind=RegistrationKind.NEW,
+        confirm_declaration=True,
+        address="123 Main St",
+        city="Philadelphia",
+        zip5="19127",
+        drivers_license="12345678",
+    )
+    application = VoterApplication(record=ar)
+
+    client = get_pa_staging_client(_pa_api_key())
+    response = client.set_application(application)
+    print(response)
 
 
 if __name__ == "__main__":

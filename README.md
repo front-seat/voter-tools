@@ -46,6 +46,19 @@ vote check-csv <input-file.csv> [--details]
 
 A new CSV is written to `stdout` with the same fields as the input CSV plus extras related to the registration check.
 
+### Interact with the Pennsylvania API
+
+The `vote` command contains a number of sub-commands for interacting directly with the [Pennsylvania state API](https://www.pa.gov/en/agencies/dos/resources/voting-and-elections-resources/pa-online-voter-registration-web-api-rfc.html).
+
+For instance, to invoke the API's "get available languages" call:
+
+```
+> vote pa get-languages
+languages=(Language(code='LANGENG', name='English'), Language(code='LANGSPN', name='Spanish'), Language(code='LANGTCN', name='Chinese'))
+```
+
+Use `vote pa --help` for details on available subcommands.
+
 ## Development
 
 To contribute to this library, first checkout the code. Then create a new virtual environment:
@@ -73,3 +86,7 @@ To run a full lint/typecheck/test pass:
 ```bash
 make check
 ```
+
+## State-specific documents
+
+We've collected state-specific documents in the [`docs`](./docs) directory and will try to keep them up-to-date as state APIs change.

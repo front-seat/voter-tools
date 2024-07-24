@@ -1,0 +1,49 @@
+<APIOnlineApplicationData xmlns="OVRexternaldata">
+	<record>
+		<batch>1</batch>
+		<FirstName>Test</FirstName>
+		<MiddleName></MiddleName>
+		<LastName>Applicant1</LastName>
+		<TitleSuffix></TitleSuffix>
+		<united-states-citizen>1</united-states-citizen>
+		<eighteen-on-election-day>1</eighteen-on-election-day>
+		<isnewregistration>1</isnewregistration>
+		<name-update>0</name-update>
+		<address-update>0</address-update>
+		<ispartychange>0</ispartychange>
+		<isfederalvoter>0</isfederalvoter>
+		<voterregnumber></voterregnumber>
+		<DateOfBirth>1980-01-01</DateOfBirth>
+		<Gender>M</Gender>
+		<Ethnicity></Ethnicity>
+		<Phone></Phone>
+		<Email>test.applicant1@example.com</Email>
+		<streetaddress>123 Main St</streetaddress>
+		<streetaddress2></streetaddress2>
+		<unittype></unittype>
+		<unitnumber></unitnumber>
+		<city>Philadelphia</city>
+		<zipcode>19127</zipcode>
+		<donthavePermtOrResAddress>0</donthavePermtOrResAddress>
+		<mailingaddress></mailingaddress>
+		<mailingcity></mailingcity>
+		<mailingstate></mailingstate>
+		<mailingzipcode></mailingzipcode>
+		<drivers-license>12345678</drivers-license>
+		<ssn4></ssn4>
+		<signatureimage></signatureimage>
+		<politicalparty>D</politicalparty>
+		<otherpoliticalparty></otherpoliticalparty>
+		<needhelptovote>0</needhelptovote>
+		<assistancetype></assistancetype>
+		<preferredlanguage></preferredlanguage>
+		<declaration1>1</declaration1>
+		<assistedpersonname></assistedpersonname>
+		<assistedpersonAddress></assistedpersonAddress>
+		<assistedpersonphone />
+		<assistancedeclaration2 />
+		<county>2340</county>
+		<donthavebothDLandSSN>0</donthavebothDLandSSN>
+		<continueAppSubmit>0</continueAppSubmit>
+	</record>
+</APIOnlineApplicationData>

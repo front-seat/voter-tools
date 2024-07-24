@@ -7,18 +7,18 @@ from PIL import Image
 
 from voter_tools.pa import client as c
 
-PA_OVR_LIVE_TESTS = os.getenv("PA_OVR_LIVE_TESTS") == "True"
+PA_API_LIVE_TESTS = os.getenv("PA_API_LIVE_TESTS") == "True"
 """If True, we will actually submit real data to the PA staging server."""
 
 
-def _api_key() -> str:
-    API_KEY = os.environ.get("PA_OVR_API_KEY")
+def _pa_api_key() -> str:
+    API_KEY = os.environ.get("PA_API_KEY")
     if not API_KEY:
-        raise ValueError("PA_OVR_API_KEY environment variable must be set.")
+        raise ValueError("PA_API_KEY environment variable must be set.")
     return API_KEY
 
 
-@unittest.skipUnless(PA_OVR_LIVE_TESTS, "PA_OVR_LIVE_TESTS not enabled")
+@unittest.skipUnless(PA_API_LIVE_TESTS, "PA_API_LIVE_TESTS not enabled")
 class LiveApplicationTestCase(unittest.TestCase):
     def test_simple(self):
         """Test submitting the simplest possible application."""
@@ -40,7 +40,7 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
 
@@ -64,7 +64,7 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
 
@@ -96,6 +96,6 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
