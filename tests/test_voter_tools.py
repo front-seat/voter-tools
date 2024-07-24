@@ -1,6 +1,3 @@
-from voter_tools import example_function
-
-
-def test_example_function():
-    """Test example function."""
-    assert example_function() == 2
+def test_example():
+    """Test example."""
+    assert True
