@@ -24,9 +24,27 @@ Install this library using `pip`:
 pip install voter-tools
 ```
 
-## Usage
+## Command-line usage
 
-Usage instructions are coming soon.
+### Check registration of a single voter
+
+To check whether a voter is registered:
+
+```
+vote check <first-name> <last-name> <zip> <dob YYYY-MM-DD> [--details]
+```
+
+This will tell you whether the user is registered to vote. You can request extra details (registration date, current status, etc.) with the `--details` flag. Not all states support all details.
+
+### Check registration of multiple voters in bulk
+
+There is also a tool to check every record in a CSV file:
+
+```
+vote check-csv <input-file.csv> [--details]
+```
+
+A new CSV is written to `stdout` with the same fields as the input CSV plus extras related to the registration check.
 
 ## Development
 
