@@ -11,13 +11,13 @@ import pydantic as p
 import pydantic_xml as px
 from PIL import Image
 
+from .counties import CountyChoice, get_county_choice
 from .errors import (
     APIError,
     InvalidRegistrationError,
     UnexpectedResponseError,
     get_error_class,
 )
-from .zipcodes import CountyChoice, get_county_choice
 
 STAGING_URL = "https://paovrwebapi.beta.vote.pa.gov/SureOVRWebAPI/api/ovr"
 PRODUCTION_URL = "https://paovrwebapi.vote.pa.gov/SureOVRWebAPI/api/ovr"
