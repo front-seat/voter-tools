@@ -5,7 +5,7 @@ from unittest import TestCase
 
 from PIL import Image
 
-from . import client as c
+from voter_tools.pa import client as c
 
 
 class PAResponseDateTestCase(TestCase):

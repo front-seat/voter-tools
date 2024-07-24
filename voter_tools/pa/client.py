@@ -43,7 +43,7 @@ def serialize_response_date(v: datetime.date) -> str:
     return v.strftime(PA_API_RESPONSE_DATE_FORMAT)
 
 
-type PAResponseDate = t.Annotated[
+PAResponseDate: t.TypeAlias = t.Annotated[
     datetime.date,
     p.PlainSerializer(serialize_response_date),
     p.BeforeValidator(parse_response_date),
@@ -67,7 +67,7 @@ def serialize_response_dt(v: datetime.datetime) -> str:
     return v.strftime(PA_API_RESPONSE_DT_FORMAT)
 
 
-type PAResponseDateTime = t.Annotated[
+PAResponseDateTime: t.TypeAlias = t.Annotated[
     datetime.datetime,
     p.PlainSerializer(serialize_response_dt),
     p.BeforeValidator(parse_response_dt),
@@ -90,7 +90,7 @@ def serialize_request_date(v: datetime.date) -> str:
     return v.strftime(PA_API_REQUEST_DATE_FORMAT)
 
 
-type PARequestDate = t.Annotated[
+PARequestDate: t.TypeAlias = t.Annotated[
     datetime.date,
     p.PlainSerializer(serialize_request_date),
     p.BeforeValidator(parse_request_date),
@@ -113,7 +113,7 @@ def serialize_time(v: datetime.time) -> str:
     return v.strftime(PA_API_TIME_FORMAT)
 
 
-type PATime = t.Annotated[
+PATime: t.TypeAlias = t.Annotated[
     datetime.time, p.PlainSerializer(serialize_time), p.BeforeValidator(parse_time)
 ]
 
@@ -123,7 +123,7 @@ def title_case(v: str) -> str:
     return v.title()
 
 
-type TitleCaseStr = t.Annotated[str, p.AfterValidator(title_case)]
+TitleCaseStr: t.TypeAlias = t.Annotated[str, p.AfterValidator(title_case)]
 
 
 def parse_phone_number(v: str) -> str:
@@ -141,7 +141,7 @@ def parse_phone_number(v: str) -> str:
     return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
 
 
-type PhoneNumber = t.Annotated[str, p.BeforeValidator(parse_phone_number)]
+PhoneNumber: t.TypeAlias = t.Annotated[str, p.BeforeValidator(parse_phone_number)]
 
 
 def validate_bit(v: int | str | bool) -> bool:
@@ -167,7 +167,7 @@ def bit_serializer(v: bool) -> int:
     return int(v)
 
 
-type Bit = t.Annotated[
+Bit: t.TypeAlias = t.Annotated[
     bool, p.PlainSerializer(bit_serializer), p.BeforeValidator(validate_bit)
 ]
 
@@ -180,7 +180,7 @@ def validate_true_bit(v: int | str | bool) -> t.Literal[True]:
     return True
 
 
-type TrueBit = t.Annotated[
+TrueBit: t.TypeAlias = t.Annotated[
     t.Literal[True],
     p.PlainSerializer(bit_serializer),
     p.BeforeValidator(validate_true_bit),
@@ -285,7 +285,9 @@ def validate_signature_image(
     return image_to_data_url(resized)
 
 
-type SignatureImage = t.Annotated[str, p.BeforeValidator(validate_signature_image)]
+SignatureImage: t.TypeAlias = t.Annotated[
+    str, p.BeforeValidator(validate_signature_image)
+]
 
 
 # -----------------------------------------------------------------------------
@@ -1013,7 +1015,7 @@ class VoterAddress(px.BaseXmlModel, frozen=True):
             raise ValueError(f"Unknown county for ZIP code {value}")
         return value
 
-    @px.computed_element(tag="county")
+    @px.computed_element(tag="county")  # type: ignore
     def county(self) -> CountyChoice:
         """Return the county for the given ZIP code."""
         choice = get_county_choice(self.zip5)
@@ -1086,7 +1088,7 @@ class VoterIdentification(px.BaseXmlModel, frozen=True):
     ssn4: str | None = px.element("ssn4", default=None, max_length=4)
     """The last 4 digits of the voter's Social Security Number."""
 
-    @px.computed_element(tag="donthavebothDLandSSN")
+    @px.computed_element(tag="donthavebothDLandSSN")  # type: ignore
     def no_identification(self) -> Bit:
         """Return True if the voter has neither a driver's license nor an SSN."""
         return self.drivers_license is None and self.ssn4 is None
@@ -1094,7 +1096,7 @@ class VoterIdentification(px.BaseXmlModel, frozen=True):
     signature: SignatureImage | None = px.element("signatureimage", default=None)
     """The voter's signature image."""
 
-    @px.computed_element(tag="continueAppSubmit")
+    @px.computed_element(tag="continueAppSubmit")  # type: ignore
     def continue_submit(self) -> Bit:
         """
         Return True if the application can continue a previous failed app.

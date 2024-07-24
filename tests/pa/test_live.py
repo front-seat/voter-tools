@@ -5,7 +5,7 @@ import unittest
 
 from PIL import Image
 
-from . import client as c
+from voter_tools.pa import client as c
 
 PA_OVR_LIVE_TESTS = os.getenv("PA_OVR_LIVE_TESTS") == "True"
 """If True, we will actually submit real data to the PA staging server."""
@@ -40,7 +40,7 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PAClient.staging(_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_api_key())
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
 
@@ -64,7 +64,7 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PAClient.staging(_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_api_key())
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
 
@@ -96,6 +96,6 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PAClient.staging(_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_api_key())
         response = client.set_application(application)
         self.assertIsNone(response.error_code)

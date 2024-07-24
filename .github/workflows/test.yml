@@ -33,5 +33,4 @@ jobs:
           mypy .
       - name: Run tests
         run: |
-          pytest
-
+          python -m unittest
