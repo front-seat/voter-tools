@@ -11,8 +11,8 @@ from .errors import VoterRegistrationError
 from .tool import (
     CheckRegistrationDetails,
     CheckRegistrationResult,
+    CheckRegistrationTool,
     SupportedFeatures,
-    VoterRegistrationTool,
 )
 from .zipcodes import get_county
 
@@ -395,11 +395,11 @@ def _get_contact_details(contact_id: str) -> GetPersonalInformationResult | None
 
 
 # ------------------------------------------------------------------------
-# VoterRegistrationTool implementation for GA
+# CheckRegistrationTool implementation for GA
 # ------------------------------------------------------------------------
 
 
-class GeorgiaVoterRegistrationTool(VoterRegistrationTool):
+class GeorgiaCheckRegistrationTool(CheckRegistrationTool):
     """A tool for checking voter registration in Georgia."""
 
     state: t.ClassVar[str] = "GA"

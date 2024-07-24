@@ -5,9 +5,9 @@ from datetime import date
 import httpx
 from user_agent import generate_user_agent
 
-from .errors import VoterRegistrationError
-from .tool import CheckRegistrationResult, SupportedFeatures, VoterRegistrationTool
-from .zipcodes import get_county
+from ..errors import VoterRegistrationError
+from ..tool import CheckRegistrationResult, CheckRegistrationTool, SupportedFeatures
+from ..zipcodes import get_county
 
 COUNTY_TO_CODE = {
     "ADAMS": "2290",
@@ -88,12 +88,7 @@ def get_county_code(zipcode: str) -> str | None:
     return COUNTY_TO_CODE.get(county.upper())
 
 
-# ------------------------------------------------------------------------
-# VoterRegistrationTool implementation for PA
-# ------------------------------------------------------------------------
-
-
-class PennsylvaniaVoterRegistrationTool(VoterRegistrationTool):
+class PennsylvaniaCheckRegistrationTool(CheckRegistrationTool):
     """A tool for checking voter registration in Pennsylvania."""
 
     state: t.ClassVar[str] = "PA"

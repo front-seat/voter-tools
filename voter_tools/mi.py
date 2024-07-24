@@ -9,16 +9,16 @@ from .soup_utils import find_attr_value
 from .tool import (
     CheckRegistrationDetails,
     CheckRegistrationResult,
+    CheckRegistrationTool,
     SupportedFeatures,
-    VoterRegistrationTool,
 )
 
 # ------------------------------------------------------------------------
-# VoterRegistrationTool implementation for MI
+# CheckRegistrationTool implementation for MI
 # ------------------------------------------------------------------------
 
 
-class MichiganVoterRegistrationTool(VoterRegistrationTool):
+class MichiganCheckRegistrationTool(CheckRegistrationTool):
     """A tool for checking voter registration in Michigan."""
 
     state: t.ClassVar[str] = "MI"

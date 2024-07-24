@@ -7,7 +7,7 @@ import sys
 
 import click
 
-from . import get_registration_tool
+from . import get_check_tool
 
 
 @click.group()
@@ -32,7 +32,7 @@ def check(
     details: bool = False,
 ) -> None:
     """Check if a single person is registered to vote."""
-    tool = get_registration_tool(zipcode=zipcode)
+    tool = get_check_tool(zipcode=zipcode)
     if tool is None:
         print(f"Error: unsupported state for zipcode {zipcode}.")
         sys.exit(1)
@@ -171,7 +171,7 @@ def check_csv(
                 row[state_voter_id_header] = ""
 
             # Get the registration tool for the given ZIP code
-            tool = get_registration_tool(zipcode=zipcode)
+            tool = get_check_tool(zipcode=zipcode)
 
             # Handle unsupported states
             if tool is None:

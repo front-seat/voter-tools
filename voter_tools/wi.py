@@ -8,8 +8,8 @@ from .errors import MultipleRecordsFoundError, VoterRegistrationError
 from .tool import (
     CheckRegistrationDetails,
     CheckRegistrationResult,
+    CheckRegistrationTool,
     SupportedFeatures,
-    VoterRegistrationTool,
 )
 
 # ------------------------------------------------------------------------
@@ -57,11 +57,11 @@ class SearchResponse(p.BaseModel, frozen=True):
 
 
 # ------------------------------------------------------------------------
-# VoterRegistrationTool implementation for WI
+# CheckRegistrationTool implementation for WI
 # ------------------------------------------------------------------------
 
 
-class WisconsinVoterRegistrationTool(VoterRegistrationTool):
+class WisconsinCheckRegistrationTool(CheckRegistrationTool):
     """A tool for checking voter registration in Wisconsin."""
 
     SEARCH_URL: t.ClassVar[str] = (

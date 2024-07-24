@@ -1,7 +1,7 @@
 [project]
 description = "Tools for online voter registration in the United States of America"
 name = "voter-tools"
-version = "0.0.1"
+version = "0.0.2"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Dave Peck", email = "dave@frontseat.org" }]
@@ -16,6 +16,8 @@ dependencies = [
   "beautifulsoup4>=4.12.3",
   "click>=8.1.7",
   "httpx>=0.27.0",
+  "pillow>=10.4.0",
+  "pydantic-xml>=2.11.0",
   "pydantic>=2.8.2",
   "user-agent>=0.1.10",
 ]
