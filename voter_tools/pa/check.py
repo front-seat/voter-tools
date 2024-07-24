@@ -5,9 +5,9 @@ from datetime import date
 import httpx
 from user_agent import generate_user_agent
 
-from .errors import VoterRegistrationError
-from .tool import CheckRegistrationResult, SupportedFeatures, VoterRegistrationTool
-from .zipcodes import get_county
+from ..errors import CheckRegistrationError
+from ..tool import CheckRegistrationResult, CheckRegistrationTool, SupportedFeatures
+from ..zipcodes import get_county
 
 COUNTY_TO_CODE = {
     "ADAMS": "2290",
@@ -88,12 +88,7 @@ def get_county_code(zipcode: str) -> str | None:
     return COUNTY_TO_CODE.get(county.upper())
 
 
-# ------------------------------------------------------------------------
-# VoterRegistrationTool implementation for PA
-# ------------------------------------------------------------------------
-
-
-class PennsylvaniaVoterRegistrationTool(VoterRegistrationTool):
+class PennsylvaniaCheckRegistrationTool(CheckRegistrationTool):
     """A tool for checking voter registration in Pennsylvania."""
 
     state: t.ClassVar[str] = "PA"
@@ -119,7 +114,7 @@ class PennsylvaniaVoterRegistrationTool(VoterRegistrationTool):
         """Make a request to the PA voter registration status page."""
         county_code = get_county_code(zipcode)
         if not county_code:
-            raise VoterRegistrationError("Invalid ZIP code or unknown county")
+            raise CheckRegistrationError("Invalid ZIP code or unknown county")
         data = {
             "ctl00$ContentPlaceHolder1$ScriptManager1": "ctl00$ContentPlaceHolder1$UpdatePanel1|ctl00$ContentPlaceHolder1$btnContinue",  # noqa: E501
             "ctl00_ContentPlaceHolder1_ScriptManager1_HiddenField": "",
@@ -161,8 +156,8 @@ class PennsylvaniaVoterRegistrationTool(VoterRegistrationTool):
         try:
             response = self._request(first_name, last_name, zipcode, birth_date)
         except httpx.HTTPStatusError as e:
-            raise VoterRegistrationError("Failed to check voter registration") from e
-        except VoterRegistrationError:
+            raise CheckRegistrationError("Failed to check voter registration") from e
+        except CheckRegistrationError:
             raise
 
         return CheckRegistrationResult(

@@ -4,21 +4,21 @@ import typing as t
 import httpx
 from bs4 import BeautifulSoup
 
-from .errors import MultipleRecordsFoundError, VoterRegistrationError
+from .errors import CheckRegistrationError, MultipleRecordsFoundError
 from .soup_utils import find_attr_value
 from .tool import (
     CheckRegistrationDetails,
     CheckRegistrationResult,
+    CheckRegistrationTool,
     SupportedFeatures,
-    VoterRegistrationTool,
 )
 
 # ------------------------------------------------------------------------
-# VoterRegistrationTool implementation for MI
+# CheckRegistrationTool implementation for MI
 # ------------------------------------------------------------------------
 
 
-class MichiganVoterRegistrationTool(VoterRegistrationTool):
+class MichiganCheckRegistrationTool(CheckRegistrationTool):
     """A tool for checking voter registration in Michigan."""
 
     state: t.ClassVar[str] = "MI"
@@ -57,7 +57,7 @@ class MichiganVoterRegistrationTool(VoterRegistrationTool):
             )
             request.raise_for_status()
         except httpx.HTTPError as e:
-            raise VoterRegistrationError("Failed to check voter registration.") from e
+            raise CheckRegistrationError("Failed to check voter registration.") from e
 
         # Parse the response
         soup = BeautifulSoup(request.text, "html.parser")
@@ -81,18 +81,18 @@ class MichiganVoterRegistrationTool(VoterRegistrationTool):
         # Get the registration details
         dpa_id_val = find_attr_value(soup, "input", "value", id="Voter_0__DpaID")
         if not dpa_id_val:
-            raise VoterRegistrationError("Failed to find dpa id.")
+            raise CheckRegistrationError("Failed to find dpa id.")
         registration_date_val = find_attr_value(
             soup, "input", "value", id="Voter_0__EffectiveRegistrationDate"
         )
         if not registration_date_val:
-            raise VoterRegistrationError("Failed to find registration date.")
+            raise CheckRegistrationError("Failed to find registration date.")
         try:
             registration_date = datetime.datetime.strptime(
                 registration_date_val.split(" ")[0], "%m/%d/%Y"
             ).date()
         except ValueError as e:
-            raise VoterRegistrationError("Failed to parse registration date.") from e
+            raise CheckRegistrationError("Failed to parse registration date.") from e
 
         return CheckRegistrationResult(
             registered=True,

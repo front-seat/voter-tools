@@ -29,13 +29,13 @@ class CheckRegistrationResult(p.BaseModel, frozen=True):
 
 
 class SupportedFeatures(p.BaseModel, frozen=True):
-    """Features supported by a voter registration tool."""
+    """Features supported by a voter tool."""
 
     details: bool
-    """True if the tool supports returning detailed registration information."""
+    """True if the tool provides detailed registration information."""
 
 
-class VoterRegistrationTool(ABC):
+class CheckRegistrationTool(ABC):
     """Base class for working with voter registration data."""
 
     state: t.ClassVar[str]
@@ -59,6 +59,11 @@ class VoterRegistrationTool(ABC):
         If details are requested and available, include them in the result.
         (Not all states provide detailed registration information.)
 
-        Raises a VoterRegistrationError if there is an unexpected failure.
+        Raises a CheckRegistrationError if there is an unexpected failure.
         """
         ...
+
+
+# TODO: as we support online voter registration in more states, consider if
+# there's anything like a unified interface to build for them. For now,
+# let's not bother.
