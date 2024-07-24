@@ -4,7 +4,7 @@ import typing as t
 import httpx
 import pydantic as p
 
-from .errors import MultipleRecordsFoundError, VoterRegistrationError
+from .errors import CheckRegistrationError, MultipleRecordsFoundError
 from .tool import (
     CheckRegistrationDetails,
     CheckRegistrationResult,
@@ -91,15 +91,15 @@ class WisconsinCheckRegistrationTool(CheckRegistrationTool):
             )
             request.raise_for_status()
         except httpx.HTTPError as e:
-            raise VoterRegistrationError("Failed to check voter registration.") from e
+            raise CheckRegistrationError("Failed to check voter registration.") from e
 
         try:
             response = SearchResponse.model_validate(request.json())
         except Exception as e:
-            raise VoterRegistrationError("Failed to parse response.") from e
+            raise CheckRegistrationError("Failed to parse response.") from e
 
         if not response.success:
-            raise VoterRegistrationError(response.error_message or "Unknown error.")
+            raise CheckRegistrationError(response.error_message or "Unknown error.")
 
         if not response.data.voters.values:
             return CheckRegistrationResult(registered=False)

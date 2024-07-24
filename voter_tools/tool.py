@@ -59,7 +59,7 @@ class CheckRegistrationTool(ABC):
         If details are requested and available, include them in the result.
         (Not all states provide detailed registration information.)
 
-        Raises a VoterRegistrationError if there is an unexpected failure.
+        Raises a CheckRegistrationError if there is an unexpected failure.
         """
         ...
 

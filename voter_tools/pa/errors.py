@@ -1,10 +1,6 @@
 import typing as t
 
-
-class APIError(Exception):
-    """Base class for all API errors."""
-
-    pass
+from ..errors import APIError
 
 
 class InvalidAccessKeyError(APIError):

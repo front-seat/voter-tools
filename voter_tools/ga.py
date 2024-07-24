@@ -7,7 +7,7 @@ from abc import abstractmethod
 import httpx
 import pydantic as p
 
-from .errors import VoterRegistrationError
+from .errors import CheckRegistrationError
 from .tool import (
     CheckRegistrationDetails,
     CheckRegistrationResult,
@@ -419,13 +419,13 @@ class GeorgiaCheckRegistrationTool(CheckRegistrationTool):
                 first_name, last_name, zipcode, birth_date
             )
         except Exception as e:
-            raise VoterRegistrationError("Error checking voter registration") from e
+            raise CheckRegistrationError("Error checking voter registration") from e
 
         if check_result is None:
             return CheckRegistrationResult(registered=False, details=None)
 
         if not check_result.success:
-            raise VoterRegistrationError("Error checking voter registration")
+            raise CheckRegistrationError("Error checking voter registration")
 
         if not details:
             return CheckRegistrationResult(registered=True, details=None)
@@ -435,7 +435,7 @@ class GeorgiaCheckRegistrationTool(CheckRegistrationTool):
         try:
             personal_result = _get_contact_details(contact_id)
         except Exception as e:
-            raise VoterRegistrationError("Error checking voter registration") from e
+            raise CheckRegistrationError("Error checking voter registration") from e
 
         if personal_result is None:
             return CheckRegistrationResult(registered=True, details=None)

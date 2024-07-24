@@ -5,7 +5,7 @@ from datetime import date
 import httpx
 from user_agent import generate_user_agent
 
-from ..errors import VoterRegistrationError
+from ..errors import CheckRegistrationError
 from ..tool import CheckRegistrationResult, CheckRegistrationTool, SupportedFeatures
 from ..zipcodes import get_county
 
@@ -114,7 +114,7 @@ class PennsylvaniaCheckRegistrationTool(CheckRegistrationTool):
         """Make a request to the PA voter registration status page."""
         county_code = get_county_code(zipcode)
         if not county_code:
-            raise VoterRegistrationError("Invalid ZIP code or unknown county")
+            raise CheckRegistrationError("Invalid ZIP code or unknown county")
         data = {
             "ctl00$ContentPlaceHolder1$ScriptManager1": "ctl00$ContentPlaceHolder1$UpdatePanel1|ctl00$ContentPlaceHolder1$btnContinue",  # noqa: E501
             "ctl00_ContentPlaceHolder1_ScriptManager1_HiddenField": "",
@@ -156,8 +156,8 @@ class PennsylvaniaCheckRegistrationTool(CheckRegistrationTool):
         try:
             response = self._request(first_name, last_name, zipcode, birth_date)
         except httpx.HTTPStatusError as e:
-            raise VoterRegistrationError("Failed to check voter registration") from e
-        except VoterRegistrationError:
+            raise CheckRegistrationError("Failed to check voter registration") from e
+        except CheckRegistrationError:
             raise
 
         return CheckRegistrationResult(
