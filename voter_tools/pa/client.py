@@ -1161,7 +1161,7 @@ class VoterAssistance(px.BaseXmlModel, frozen=True):
 
     # If require_help_to_vote is True, this must also be set.
     assistance_type: AssistanceTypeChoice | None = px.element(
-        tag="assistancetype", default=None
+        tag="typeofassistance", default=None
     )
     """The type of assistance needed by the voter."""
 
@@ -1466,22 +1466,26 @@ class PennsylvaniaAPIClient:
     api_url: str
     api_key: str
     language: int
+    timeout: float
 
-    def __init__(self, api_url: str, api_key: str, language: int = 0):
+    def __init__(
+        self, api_url: str, api_key: str, *, language: int = 0, timeout: float = 5.0
+    ):
         """Create a new client for the Pennsylvania OVR API."""
         self.api_url = api_url
         self.api_key = api_key
         self.language = language
+        self.timeout = timeout
 
     @classmethod
-    def staging(cls, api_key: str, language: int = 0):
+    def staging(cls, api_key: str, *, language: int = 0, timeout: float = 5.0):
         """Create a new client for the Pennsylvania OVR API in staging."""
-        return cls(STAGING_URL, api_key, language)
+        return cls(STAGING_URL, api_key, language=language, timeout=timeout)
 
     @classmethod
-    def production(cls, api_key: str, language: int = 0):
+    def production(cls, api_key: str, *, language: int = 0, timeout: float = 5.0):
         """Create a new client for the Pennsylvania OVR API in production."""
-        return cls(PRODUCTION_URL, api_key, language)
+        return cls(PRODUCTION_URL, api_key, language=language, timeout=timeout)
 
     def build_url(self, action: Action, params: dict | None = None) -> str:
         """Build a URL for the given action and parameters."""
@@ -1499,7 +1503,9 @@ class PennsylvaniaAPIClient:
     def _raw_get(self, action: Action, params: dict | None = None) -> str:
         """Perform a raw GET request to the Pennsylvania OVR API."""
         url = self.build_url(action, params)
-        response = httpx.get(url, headers={"Cache-Control": "no-cache"})
+        response = httpx.get(
+            url, headers={"Cache-Control": "no-cache"}, timeout=self.timeout
+        )
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
@@ -1524,7 +1530,10 @@ class PennsylvaniaAPIClient:
         data_jsonable = {"ApplicationData": data_str}
         # print("DATA: ", data_jsonable)
         response = httpx.post(
-            url, json=data_jsonable, headers={"Cache-Control": "no-cache"}
+            url,
+            json=data_jsonable,
+            headers={"Cache-Control": "no-cache"},
+            timeout=self.timeout,
         )
         try:
             response.raise_for_status()
