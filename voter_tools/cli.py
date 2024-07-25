@@ -278,13 +278,14 @@ def get_municipalities(county: str):
 
 @pa.command()
 @click.option("--xml", type=click.File("r"))
-def set_xml_application(xml: t.TextIO):
+@click.option("--timeout", type=float, default=10.0, help="Timeout in seconds.")
+def set_xml_application(xml: t.TextIO, timeout: float):
     """Validate an arbitrary XML application structure and submit it if valid."""
     from .pa.client import VoterApplication
 
     xml_str = xml.read()
     application = VoterApplication.from_xml(xml_str)
-    client = get_pa_staging_client(_pa_api_key())
+    client = get_pa_staging_client(_pa_api_key(), timeout=timeout)
     response = client.set_application(application)
     print(response)
 

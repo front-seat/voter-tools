@@ -40,7 +40,7 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key(), timeout=100.0)
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
 
@@ -64,17 +64,12 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key(), timeout=100.0)
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
 
     TEST_SIGNATURE_PATH = pathlib.Path(__file__).parent / "test_signature.png"
 
-    @unittest.skip("""
-        XXX I can see that the image data included in our POST request
-        exactly matches the API spec, but the staging endpoint
-        times out and never responds when I send it. A bug on PA's part?
-    """)
     def test_signature_image(self):
         """Test submitting an application with a signature image."""
         signature_img = Image.open(self.TEST_SIGNATURE_PATH)
@@ -96,6 +91,8 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
+        # According to folks @ PA SOS, it can take up to 80 seconds for the
+        # staging endpoint to respond when a signature is uploaded.
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key(), timeout=100.0)
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
