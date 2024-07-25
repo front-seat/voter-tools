@@ -40,7 +40,7 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key(), timeout=100.0)
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
 
@@ -64,7 +64,7 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key(), timeout=100.0)
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
 
@@ -96,6 +96,8 @@ class LiveApplicationTestCase(unittest.TestCase):
         )
         application = c.VoterApplication(record=record)
 
-        client = c.PennsylvaniaAPIClient.staging(_pa_api_key())
+        # According to folks @ PA SOS, it can take up to 80 seconds for the
+        # staging endpoint to respond when a signature is uploaded.
+        client = c.PennsylvaniaAPIClient.staging(_pa_api_key(), timeout=100.0)
         response = client.set_application(application)
         self.assertIsNone(response.error_code)
