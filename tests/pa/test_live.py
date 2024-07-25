@@ -70,11 +70,6 @@ class LiveApplicationTestCase(unittest.TestCase):
 
     TEST_SIGNATURE_PATH = pathlib.Path(__file__).parent / "test_signature.png"
 
-    @unittest.skip("""
-        XXX I can see that the image data included in our POST request
-        exactly matches the API spec, but the staging endpoint
-        times out and never responds when I send it. A bug on PA's part?
-    """)
     def test_signature_image(self):
         """Test submitting an application with a signature image."""
         signature_img = Image.open(self.TEST_SIGNATURE_PATH)
