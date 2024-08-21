@@ -10,7 +10,8 @@ from xml.etree import ElementTree as ET
 
 import click
 
-from . import get_check_tool, get_pa_staging_client
+from . import PennsylvaniaAPIClient, get_check_tool
+from .pa.debug import CurlDebugTransport
 
 
 @click.group()
@@ -220,7 +221,7 @@ def _pa_api_key() -> str:
 @pa.command()
 def get_application_setup():
     """Get the application setup."""
-    client = get_pa_staging_client(_pa_api_key())
+    client = PennsylvaniaAPIClient.staging(_pa_api_key())
     setup = client.get_application_setup()
     print(setup)
 
@@ -228,7 +229,7 @@ def get_application_setup():
 @pa.command()
 def get_ballot_application_setup():
     """Get the mail-in ballot setup."""
-    client = get_pa_staging_client(_pa_api_key())
+    client = PennsylvaniaAPIClient.staging(_pa_api_key())
     setup = client.get_ballot_application_setup()
     print(setup)
 
@@ -236,7 +237,7 @@ def get_ballot_application_setup():
 @pa.command()
 def get_languages():
     """Get the languages."""
-    client = get_pa_staging_client(_pa_api_key())
+    client = PennsylvaniaAPIClient.staging(_pa_api_key())
     languages = client.get_languages()
     print(languages)
 
@@ -244,7 +245,7 @@ def get_languages():
 @pa.command()
 def get_xml_template():
     """Get the XML template."""
-    client = get_pa_staging_client(_pa_api_key())
+    client = PennsylvaniaAPIClient.staging(_pa_api_key())
     template = client.get_xml_template()
     ET.indent(template)
     ET.dump(template)
@@ -253,7 +254,7 @@ def get_xml_template():
 @pa.command()
 def get_ballot_xml_template():
     """Get the ballot XML template."""
-    client = get_pa_staging_client(_pa_api_key())
+    client = PennsylvaniaAPIClient.staging(_pa_api_key())
     template = client.get_ballot_xml_template()
     ET.indent(template)
     ET.dump(template)
@@ -262,7 +263,7 @@ def get_ballot_xml_template():
 @pa.command()
 def get_error_values():
     """Get the error values."""
-    client = get_pa_staging_client(_pa_api_key())
+    client = PennsylvaniaAPIClient.staging(_pa_api_key())
     errors = client.get_error_values()
     print(errors)
 
@@ -271,21 +272,32 @@ def get_error_values():
 @click.argument("county")
 def get_municipalities(county: str):
     """Get the municipalities for the given county."""
-    client = get_pa_staging_client(_pa_api_key())
+    client = PennsylvaniaAPIClient.staging(_pa_api_key())
     municipalities = client.get_municipalities(county)
     print(municipalities)
 
 
 @pa.command()
 @click.option("--xml", type=click.File("r"))
-@click.option("--timeout", type=float, default=10.0, help="Timeout in seconds.")
-def set_xml_application(xml: t.TextIO, timeout: float):
+@click.option("--timeout", type=float, default=100.0, help="Timeout in seconds.")
+@click.option(
+    "--debug-curl",
+    is_flag=True,
+    default=False,
+    help="Display the request as a CURL command.",
+)
+def set_xml_application(xml: t.TextIO, timeout: float, debug_curl: bool):
     """Validate an arbitrary XML application structure and submit it if valid."""
     from .pa.client import VoterApplication
 
     xml_str = xml.read()
     application = VoterApplication.from_xml(xml_str)
-    client = get_pa_staging_client(_pa_api_key(), timeout=timeout)
+    transport = (
+        CurlDebugTransport(click.get_text_stream("stdout")) if debug_curl else None
+    )
+    client = PennsylvaniaAPIClient.staging(
+        _pa_api_key(), timeout=timeout, _transport=transport
+    )
     response = client.set_application(application)
     print(response)
 
@@ -323,7 +335,7 @@ def set_test_application():
     )
     application = VoterApplication(record=ar)
 
-    client = get_pa_staging_client(_pa_api_key())
+    client = PennsylvaniaAPIClient.staging(_pa_api_key())
     response = client.set_application(application)
     print(response)
 

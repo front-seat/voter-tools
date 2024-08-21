@@ -1466,26 +1466,40 @@ class PennsylvaniaAPIClient:
     api_url: str
     api_key: str
     language: int
-    timeout: float
+    _client: httpx.Client
 
     def __init__(
-        self, api_url: str, api_key: str, *, language: int = 0, timeout: float = 5.0
+        self,
+        api_url: str,
+        api_key: str,
+        *,
+        language: int = 0,
+        timeout: float = 5.0,
+        # Lower-level parameter for test and debug purposes
+        _transport: httpx.BaseTransport | None = None,
     ):
         """Create a new client for the Pennsylvania OVR API."""
         self.api_url = api_url
         self.api_key = api_key
         self.language = language
-        self.timeout = timeout
+        mounts = {"all://": _transport} if _transport else None
+        self._client = httpx.Client(mounts=mounts, timeout=timeout)
 
     @classmethod
-    def staging(cls, api_key: str, *, language: int = 0, timeout: float = 5.0):
+    def staging(
+        cls, api_key: str, *, language: int = 0, timeout: float = 5.0, **kwargs
+    ):
         """Create a new client for the Pennsylvania OVR API in staging."""
-        return cls(STAGING_URL, api_key, language=language, timeout=timeout)
+        return cls(STAGING_URL, api_key, language=language, timeout=timeout, **kwargs)
 
     @classmethod
-    def production(cls, api_key: str, *, language: int = 0, timeout: float = 5.0):
+    def production(
+        cls, api_key: str, *, language: int = 0, timeout: float = 5.0, **kwargs
+    ):
         """Create a new client for the Pennsylvania OVR API in production."""
-        return cls(PRODUCTION_URL, api_key, language=language, timeout=timeout)
+        return cls(
+            PRODUCTION_URL, api_key, language=language, timeout=timeout, **kwargs
+        )
 
     def build_url(self, action: Action, params: dict | None = None) -> str:
         """Build a URL for the given action and parameters."""
@@ -1503,9 +1517,7 @@ class PennsylvaniaAPIClient:
     def _raw_get(self, action: Action, params: dict | None = None) -> str:
         """Perform a raw GET request to the Pennsylvania OVR API."""
         url = self.build_url(action, params)
-        response = httpx.get(
-            url, headers={"Cache-Control": "no-cache"}, timeout=self.timeout
-        )
+        response = self._client.get(url, headers={"Cache-Control": "no-cache"})
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
@@ -1529,11 +1541,10 @@ class PennsylvaniaAPIClient:
             data_str = data
         data_jsonable = {"ApplicationData": data_str}
         # print("DATA: ", data_jsonable)
-        response = httpx.post(
+        response = self._client.post(
             url,
             json=data_jsonable,
             headers={"Cache-Control": "no-cache"},
-            timeout=self.timeout,
         )
         try:
             response.raise_for_status()
@@ -1627,8 +1638,6 @@ class PennsylvaniaAPIClient:
     def set_application(self, application: VoterApplication) -> APIResponse:
         """Submit a voter registration + optional mail-in ballot app."""
         xml_tree = application.to_xml_tree()
-        # ET.indent(xml_tree)
-        # ET.dump(xml_tree)
         data = self.invoke(Action.SET_APPLICATION, data=xml_tree)
         return APIResponse.from_xml_tree(data)
 

@@ -37,19 +37,7 @@ def get_check_tool(
 # Pennsylvania, so there's no point in trying to generalize.
 
 
-def get_pa_staging_client(
-    api_key: str, *, language: int = 0, timeout: float = 5.0
-) -> PennsylvaniaAPIClient:
-    """Return a tool for submitting voter registrations in Pennsylvania."""
-    return PennsylvaniaAPIClient.staging(
-        api_key=api_key, language=language, timeout=timeout
-    )
-
-
-def get_pa_production_client(
-    api_key: str, *, language: int = 0, timeout: float = 5.0
-) -> PennsylvaniaAPIClient:
-    """Return a tool for submitting voter registrations in Pennsylvania."""
-    return PennsylvaniaAPIClient.production(
-        api_key=api_key, language=language, timeout=timeout
-    )
+__all__ = [
+    "get_check_tool",
+    "PennsylvaniaAPIClient",
+]
