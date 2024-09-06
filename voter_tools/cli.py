@@ -10,11 +10,12 @@ from xml.etree import ElementTree as ET
 
 import click
 
-from . import PennsylvaniaAPIClient, get_check_tool
+from . import PennsylvaniaAPIClient, __version__, get_check_tool
 from .pa.debug import CurlDebugTransport
 
 
 @click.group()
+@click.version_option(__version__)
 def vote():
     """Command-line tool for working with voter data."""
     pass

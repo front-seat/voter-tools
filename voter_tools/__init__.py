@@ -8,6 +8,9 @@ from .tool import CheckRegistrationTool
 from .wi import WisconsinCheckRegistrationTool
 from .zipcodes import get_state
 
+__version__ = "0.0.5"
+
+
 _CHECK_TOOLS: dict[str, type[CheckRegistrationTool]] = {
     "GA": GeorgiaCheckRegistrationTool,
     "MI": MichiganCheckRegistrationTool,
