@@ -6,6 +6,16 @@ from enum import Enum
 from urllib.parse import urlencode
 from xml.etree import ElementTree as ET
 
+try:
+    from lxml import etree as LET
+
+    LXML_AVAILABLE = True
+except ImportError:
+    # Hack to make typing work a little better in this case...
+    from xml.etree import ElementTree as LET
+
+    LXML_AVAILABLE = False
+
 import httpx
 import pydantic as p
 import pydantic_xml as px
@@ -1525,23 +1535,29 @@ class PennsylvaniaAPIClient:
         return response.json()
 
     def _raw_post(
-        self, action: Action, data: ET.Element | str, params: dict | None = None
+        self,
+        action: Action,
+        data: ET.Element | LET.Element | str,
+        params: dict | None = None,
     ) -> str:
         """Perform a raw POST request to the Pennsylvania OVR API."""
         url = self.build_url(action)
-        # If lxml is installed, data may conform to ET.Element but not actually
-        # derive from it; alas, it's not a protocol, so we mostly just
-        # do the best we can.
-        if isinstance(data, str):
-            data_str = data
-        else:
-            # XXX this is no fun -- the API doesn't *really*
-            # accept xml, because if it did, this would not be necessary.
-            # Instead, the API accepts a *very specific variant* of XML
-            # where the namespaces are just-so. And I can't figure out how
-            # to produce that variant from pydantic-xml. So we're doing this.
+        if LXML_AVAILABLE and isinstance(data, LET.Element):
+            data_str = LET.tostring(data, encoding="unicode")  # type: ignore
+        elif isinstance(data, ET.Element):
             data_str = ET.tostring(data, encoding="unicode")
-            data_str = data_str.replace("ns0:", "").replace(":ns0=", "=")
+        else:
+            data_str = data
+
+        assert isinstance(data_str, str)
+
+        # XXX this is no fun -- the API doesn't *really*
+        # accept xml, because if it did, this would not be necessary.
+        # Instead, the API accepts a *very specific variant* of XML
+        # where the namespaces are just-so. And I can't figure out how
+        # to produce that variant from pydantic-xml. So we're doing this.
+        data_str = data_str.replace("ns0:", "").replace(":ns0=", "=")
+
         data_jsonable = {"ApplicationData": data_str}
         print("TODO DAVE remove this: DATA jsonable: ", data_jsonable)
         response = self._client.post(
