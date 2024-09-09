@@ -4,7 +4,6 @@ import typing as t
 from base64 import b64decode, b64encode
 from enum import Enum
 from urllib.parse import urlencode
-from xml.etree import ElementTree as ET
 
 import httpx
 import pydantic as p
@@ -19,20 +18,17 @@ from .errors import (
     get_error_class,
 )
 
-try:
-    from lxml import etree as LET
-
-    LXML_AVAILABLE = True
-except ImportError:
-    LXML_AVAILABLE = False
-
-# Because type aliases can be defined only once (and not dynamically)
-# we just define a stupid one here. Alas.
-AnyXmlElement = t.Any
-
-
 STAGING_URL = "https://paovrwebapi.beta.vote.pa.gov/SureOVRWebAPI/api/ovr"
 PRODUCTION_URL = "https://paovrwebapi.vote.pa.gov/SureOVRWebAPI/api/ovr"
+
+try:
+    from lxml.etree import ElementBase as XmlElement  # type: ignore
+    from lxml.etree import fromstring as xml_fromstring  # type: ignore
+    from lxml.etree import tostring as xml_tostring  # type: ignore
+except ImportError:
+    from xml.etree.ElementTree import Element as XmlElement
+    from xml.etree.ElementTree import fromstring as xml_fromstring
+    from xml.etree.ElementTree import tostring as xml_tostring
 
 
 # -----------------------------------------------------------------------------
@@ -1539,26 +1535,24 @@ class PennsylvaniaAPIClient:
     def _raw_post(
         self,
         action: Action,
-        data: AnyXmlElement | str,  # type: ignore
+        data: XmlElement | str,  # type: ignore
         params: dict | None = None,
     ) -> str:
         """Perform a raw POST request to the Pennsylvania OVR API."""
         url = self.build_url(action)
-        if LXML_AVAILABLE and isinstance(data, LET._Element):  # type: ignore
-            data_str = LET.tostring(data, encoding="unicode")  # type: ignore
-        elif isinstance(data, ET.Element):
-            data_str = ET.tostring(data, encoding="unicode")
+        if isinstance(data, XmlElement):
+            data_str = xml_tostring(data, encoding="unicode")  # type: ignore
+            assert isinstance(data_str, str)
+            # XXX this is no fun -- the API doesn't *really*
+            # accept xml, because if it did, this would not be necessary.
+            # Instead, the API accepts a *very specific variant* of XML
+            # where the namespaces are just-so. And I can't figure out how
+            # to produce that variant from pydantic-xml. So we're doing this.
+            data_str = data_str.replace("ns0:", "").replace(":ns0=", "=")
         else:
             data_str = data
 
         assert isinstance(data_str, str)
-
-        # XXX this is no fun -- the API doesn't *really*
-        # accept xml, because if it did, this would not be necessary.
-        # Instead, the API accepts a *very specific variant* of XML
-        # where the namespaces are just-so. And I can't figure out how
-        # to produce that variant from pydantic-xml. So we're doing this.
-        data_str = data_str.replace("ns0:", "").replace(":ns0=", "=")
 
         data_jsonable = {"ApplicationData": data_str}
         print("TODO DAVE remove this: DATA jsonable: ", data_jsonable)
@@ -1573,25 +1567,25 @@ class PennsylvaniaAPIClient:
             raise UnexpectedResponseError() from e
         return response.json()
 
-    def _get(self, action: Action, params: dict | None = None) -> ET.Element:
+    def _get(self, action: Action, params: dict | None = None) -> XmlElement:
         """Perform a GET request to the Pennsylvania OVR API."""
         raw = self._raw_get(action, params)
         try:
-            return ET.fromstring(raw)
-        except ET.ParseError as e:
+            return xml_fromstring(raw)
+        except Exception as e:
             raise UnexpectedResponseError() from e
 
     def _post(
-        self, action: Action, data: AnyXmlElement | str, params: dict | None = None
-    ) -> ET.Element:
+        self, action: Action, data: XmlElement | str, params: dict | None = None
+    ) -> XmlElement:
         """Perform a POST request to the Pennsylvania OVR API."""
         raw = self._raw_post(action, data, params)
         try:
-            return ET.fromstring(raw)
-        except ET.ParseError as e:
+            return xml_fromstring(raw)
+        except Exception as e:
             raise UnexpectedResponseError() from e
 
-    def _raise_if_error(self, xml_response: ET.Element) -> None:
+    def _raise_if_error(self, xml_response: XmlElement) -> None:
         """Raise an APIError or subclass if the xml_response indicates an error."""
         # Regardless of the specific invocation we just made, the API *always*
         # returns a "generic" API response when there's an error code.
@@ -1607,9 +1601,9 @@ class PennsylvaniaAPIClient:
     def invoke(
         self,
         action: Action,
-        data: AnyXmlElement | str | None = None,
+        data: XmlElement | str | None = None,
         params: dict | None = None,
-    ) -> ET.Element:
+    ) -> XmlElement:
         """
         Invoke an action on the Pennsylvania OVR API.
 
@@ -1638,11 +1632,11 @@ class PennsylvaniaAPIClient:
         data = self.invoke(Action.GET_LANGUAGES)
         return LanguagesResponse.from_xml_tree(data)
 
-    def get_xml_template(self) -> ET.Element:
+    def get_xml_template(self) -> XmlElement:
         """Get XML tags and format for voter reg + optional mail-in ballot app."""
         return self.invoke(Action.GET_XML_TEMPLATE)
 
-    def get_ballot_xml_template(self) -> ET.Element:
+    def get_ballot_xml_template(self) -> XmlElement:
         """Get XML tags and format for mail-in ballot app."""
         return self.invoke(Action.GET_BALLOT_XML_TEMPLATE)
 

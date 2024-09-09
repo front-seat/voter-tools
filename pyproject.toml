@@ -1,7 +1,7 @@
 [project]
 description = "Tools for online voter registration in the United States of America"
 name = "voter-tools"
-version = "0.0.9"
+version = "0.0.10"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Dave Peck", email = "dave@frontseat.org" }]
