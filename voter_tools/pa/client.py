@@ -22,7 +22,7 @@ STAGING_URL = "https://paovrwebapi.beta.vote.pa.gov/SureOVRWebAPI/api/ovr"
 PRODUCTION_URL = "https://paovrwebapi.vote.pa.gov/SureOVRWebAPI/api/ovr"
 
 try:
-    from lxml.etree import ElementBase as XmlElement  # type: ignore
+    from lxml.etree import _Element as XmlElement  # type: ignore
     from lxml.etree import fromstring as xml_fromstring  # type: ignore
     from lxml.etree import tostring as xml_tostring  # type: ignore
 except ImportError:
@@ -1552,10 +1552,10 @@ class PennsylvaniaAPIClient:
         else:
             data_str = data
 
-        assert isinstance(data_str, str)
+        assert isinstance(data_str, str), f"DATA was an unexpected type: {type(data)}"
 
         data_jsonable = {"ApplicationData": data_str}
-        print("TODO DAVE remove this: DATA jsonable: ", data_jsonable)
+        # print("TODO DAVE remove this: DATA jsonable: ", data_jsonable)
         response = self._client.post(
             url,
             json=data_jsonable,

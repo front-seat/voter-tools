@@ -1,7 +1,7 @@
 [project]
 description = "Tools for online voter registration in the United States of America"
 name = "voter-tools"
-version = "0.0.10"
+version = "0.0.11"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Dave Peck", email = "dave@frontseat.org" }]
@@ -26,6 +26,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["ruff", "mypy"]
 build = ["setuptools", "wheel", "build"]
+lxml = ["lxml"]
 
 [tool.setuptools]
 include-package-data = true
