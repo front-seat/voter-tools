@@ -6,16 +6,6 @@ from enum import Enum
 from urllib.parse import urlencode
 from xml.etree import ElementTree as ET
 
-try:
-    from lxml import etree as LET
-
-    LXML_AVAILABLE = True
-except ImportError:
-    # Hack to make typing work a little better in this case...
-    from xml.etree import ElementTree as LET
-
-    LXML_AVAILABLE = False
-
 import httpx
 import pydantic as p
 import pydantic_xml as px
@@ -28,6 +18,18 @@ from .errors import (
     UnexpectedResponseError,
     get_error_class,
 )
+
+try:
+    from lxml import etree as LET
+
+    LXML_AVAILABLE = True
+except ImportError:
+    LXML_AVAILABLE = False
+
+# Because type aliases can be defined only once (and not dynamically)
+# we just define a stupid one here. Alas.
+AnyXmlElement = t.Any
+
 
 STAGING_URL = "https://paovrwebapi.beta.vote.pa.gov/SureOVRWebAPI/api/ovr"
 PRODUCTION_URL = "https://paovrwebapi.vote.pa.gov/SureOVRWebAPI/api/ovr"
@@ -1537,12 +1539,12 @@ class PennsylvaniaAPIClient:
     def _raw_post(
         self,
         action: Action,
-        data: ET.Element | LET.Element | str,
+        data: AnyXmlElement | str,  # type: ignore
         params: dict | None = None,
     ) -> str:
         """Perform a raw POST request to the Pennsylvania OVR API."""
         url = self.build_url(action)
-        if LXML_AVAILABLE and isinstance(data, LET.Element):
+        if LXML_AVAILABLE and isinstance(data, LET._Element):  # type: ignore
             data_str = LET.tostring(data, encoding="unicode")  # type: ignore
         elif isinstance(data, ET.Element):
             data_str = ET.tostring(data, encoding="unicode")
@@ -1580,7 +1582,7 @@ class PennsylvaniaAPIClient:
             raise UnexpectedResponseError() from e
 
     def _post(
-        self, action: Action, data: ET.Element | str, params: dict | None = None
+        self, action: Action, data: AnyXmlElement | str, params: dict | None = None
     ) -> ET.Element:
         """Perform a POST request to the Pennsylvania OVR API."""
         raw = self._raw_post(action, data, params)
@@ -1605,7 +1607,7 @@ class PennsylvaniaAPIClient:
     def invoke(
         self,
         action: Action,
-        data: ET.Element | str | None = None,
+        data: AnyXmlElement | str | None = None,
         params: dict | None = None,
     ) -> ET.Element:
         """
