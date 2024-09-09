@@ -1529,7 +1529,12 @@ class PennsylvaniaAPIClient:
     ) -> str:
         """Perform a raw POST request to the Pennsylvania OVR API."""
         url = self.build_url(action)
-        if isinstance(data, ET.Element):
+        # If lxml is installed, data may conform to ET.Element but not actually
+        # derive from it; alas, it's not a protocol, so we mostly just
+        # do the best we can.
+        if isinstance(data, str):
+            data_str = data
+        else:
             # XXX this is no fun -- the API doesn't *really*
             # accept xml, because if it did, this would not be necessary.
             # Instead, the API accepts a *very specific variant* of XML
@@ -1537,10 +1542,8 @@ class PennsylvaniaAPIClient:
             # to produce that variant from pydantic-xml. So we're doing this.
             data_str = ET.tostring(data, encoding="unicode")
             data_str = data_str.replace("ns0:", "").replace(":ns0=", "=")
-        else:
-            data_str = data
         data_jsonable = {"ApplicationData": data_str}
-        # print("DATA: ", data_jsonable)
+        print("TODO DAVE remove this: DATA jsonable: ", data_jsonable)
         response = self._client.post(
             url,
             json=data_jsonable,
