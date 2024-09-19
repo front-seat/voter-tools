@@ -1,6 +1,14 @@
 import typing as t
 
+import pydantic as p
+
 from ..errors import APIError
+
+
+class ProgrammingError(APIError):
+    """Raised when a something is broken with this library's code."""
+
+    pass
 
 
 class InvalidAccessKeyError(APIError):
@@ -12,7 +20,7 @@ class InvalidAccessKeyError(APIError):
     For instance, a read-only key may not be used to submit registrations.
     """
 
-    _message: t.ClassVar[str] = """
+    _default_message: t.ClassVar[str] = """
 
     Invalid API access key. It may be *entirely* invalid, or it may simply not
     have the permissions necessary to fulfill the request. For instance, the
@@ -20,49 +28,60 @@ class InvalidAccessKeyError(APIError):
     and also hands out keys that cannot be used for mail-in applications.
 """
 
-    def __init__(self, message: str = _message) -> None:
+    def __init__(self, message: str | None = None) -> None:
         """Initialize the error with the given message."""
-        super().__init__(message)
+        super().__init__(message or self._default_message)
 
 
-class UnexpectedResponseError(APIError):
-    """Raised when an unexpected response is received from the server."""
-
-    pass
-
-
-class InvalidRegistrationError(APIError):
-    """Raised when an invalid voter registration is provided."""
+class TimeoutError(APIError):
+    """Raised when a request to the server times out."""
 
     pass
 
 
-class InvalidDLError(APIError):
-    """Raised when an invalid driver's license is provided."""
+class ServiceUnavailableError(APIError):
+    """Raised when the service is currently unavailable."""
 
     pass
 
 
-class InvalidSignatureError(APIError):
-    """Raised when an invalid signature is provided."""
+class APIErrorDetails(p.BaseModel, frozen=True):
+    """Details meant to mimic pydantic's internal ErrorDetails."""
 
-    pass
-
-
-_CODE_TO_ERROR: t.Mapping[str, t.Type[APIError]] = {
-    "VR_WAPI_InvalidAccessKey": InvalidAccessKeyError,
-    "VR_WAPI_InvalidOVRDL": InvalidDLError,
-    "VR_WAPI_Invalidsignaturestring": InvalidSignatureError,
-    "VR_WAPI_Invalidsignaturetype": InvalidSignatureError,
-    "VR_WAPI_Invalidsignaturesize": InvalidSignatureError,
-    "VR_WAPI_Invalidsignaturedimension": InvalidSignatureError,
-    "VR_WAPI_Invalidsignaturecontrast": InvalidSignatureError,
-    "VR_WAPI_Invalidsignatureresolution": InvalidSignatureError,
-}
+    type: str
+    msg: str
+    loc: tuple[str, ...]
 
 
-def get_error_class(
-    code: str, default: t.Type[APIError] = APIError
-) -> t.Type[APIError]:
-    """Return the error class for the given error code."""
-    return _CODE_TO_ERROR.get(code, default)
+class APIValidationError(APIError):
+    """Raised when the pennsylvania API returns one or more validation errors."""
+
+    # This is intended to look similar to pydantic's ValidationError,
+    # but building Pydantic ValidationErrors directly is somewhat annoying
+    # (see
+
+    _errors: tuple[APIErrorDetails, ...]
+
+    def __init__(self, errors: t.Iterable[APIErrorDetails]) -> None:
+        """Initialize the error with the given errors."""
+        self._errors = tuple(errors)
+        locs = ", ".join(str(error.loc) for error in errors)
+        super().__init__(f"Validation error on {locs}")
+
+    def errors(self) -> list[APIErrorDetails]:
+        """Return the validation errors."""
+        return list(self._errors)
+
+    def json(self) -> list:
+        """Return the validation errors as a JSON-serializable dictionary."""
+        return [error.model_dump() for error in self._errors]
+
+    def append(self, other: "APIValidationError") -> "APIValidationError":
+        """Merge this error with another."""
+        return APIValidationError(self._errors + other._errors)
+
+    def extend(self, others: t.Iterable["APIValidationError"]) -> "APIValidationError":
+        """Merge this error with others."""
+        return APIValidationError(
+            self._errors + tuple(error for other in others for error in other._errors)
+        )

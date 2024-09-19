@@ -13,9 +13,11 @@ from PIL import Image
 from .counties import CountyChoice, get_county_choice
 from .errors import (
     APIError,
-    InvalidRegistrationError,
-    UnexpectedResponseError,
-    get_error_class,
+    APIErrorDetails,
+    APIValidationError,
+    InvalidAccessKeyError,
+    ProgrammingError,
+    ServiceUnavailableError,
 )
 
 STAGING_URL = "https://paovrwebapi.beta.vote.pa.gov/SureOVRWebAPI/api/ovr"
@@ -29,6 +31,323 @@ except ImportError:
     from xml.etree.ElementTree import Element as XmlElement
     from xml.etree.ElementTree import fromstring as xml_fromstring
     from xml.etree.ElementTree import tostring as xml_tostring
+
+
+# -----------------------------------------------------------------------------
+# Mapping of well-known API error codes to error behaviors
+# -----------------------------------------------------------------------------
+
+# The intent of all this code is to make it easy to map the weird error codes
+# that the PA API returns into either:
+#
+# 1. A handful of special purpose exceptions (like InvalidAccessKeyError)
+# 2. A validation error that looks very similar to a pydantic ValidationError
+
+ErrorBuilder: t.TypeAlias = t.Callable[..., APIError]
+
+
+def api_error(klass: t.Type[APIError], message: str | None = None) -> ErrorBuilder:
+    """Return an error builder for an API error."""
+
+    def _build() -> APIError:
+        return klass(message)
+
+    return _build
+
+
+def validation_error(field: str, type: str, msg: str) -> ErrorBuilder:
+    """Return an error builder for part of a validation error."""
+    # Our goal with this infrastructure is to be able to raise normal-looking
+    # pydantic ValidationErrors built from the weird error codes that the
+    # PA API returns.
+
+    def _build() -> APIValidationError:
+        details = APIErrorDetails(type=type, msg=msg, loc=(field,))
+        return APIValidationError([details])
+
+    return _build
+
+
+def merge_errors(errors: t.Iterable[APIError]) -> APIError | None:
+    """
+    Merge multiple errors into a single error.
+
+    If no errors are provided, None is returned.
+
+    If all errors derive from APIValidationError, they are merged into a single
+    APIValidationError, which is returned. Otherwise, the first error is returned.
+    """
+    accumulated: APIValidationError | None = None
+    for error in errors:
+        if not isinstance(error, APIValidationError):
+            return error
+        if accumulated is None:
+            accumulated = error
+        else:
+            accumulated = accumulated.append(error)
+    return accumulated
+
+
+def raise_if_errors(errors: t.Iterable[APIError]) -> None:
+    """
+    Raise an error if any errors are provided.
+
+    If no errors are provided, this function does nothing.
+
+    If all errors derive from APIValidationError, they are merged into a single
+    APIValidationError, which is raised. Otherwise, the first error is raised.
+    """
+    accumulated = merge_errors(errors)
+    if accumulated is not None:
+        raise accumulated
+
+
+def build_unexpected_error(code: str | None = None) -> APIValidationError:
+    """Return a generic top-level validation error for unexpected errors."""
+    code_f = f" ({code})" if code is not None else ""
+    details = APIErrorDetails(
+        type="invalid",
+        msg=f"Invalid application. Please correct any errors and try again. {code_f}",
+        loc=(),
+    )
+    return APIValidationError([details])
+
+
+# A collection of mappings from known API error codes to error behaviors.
+#
+# We have two kinds of "behaviors": APIError classes and validation errors.
+#
+# APIErrors generally get directly raised when they are encountered.
+#
+# Validation errors mean that the API request succeeded, but the voter
+# registration data was invalid in some way.
+#
+# Note that *most* of these, particularly the validation errors, should
+# never happen in practice. That's because our own validation code should catch
+# them *before* we ever make a request to the PA API. But we include them here
+# just in case.
+#
+# A handful of validations *are* genuinely possible. For instance, only
+# the API back-end knows how to validate a driver's license number, so we
+# expect this *may* be returned by the API.
+#
+# It's worth noting that a handful of these errors are repeated. For instance,
+# there are several different errors that all amount to "you didn't select
+# a valid `political_party`.". Some errors are ambiguous or may be re-used
+# for multiple fields. It's a mess, folks! So be it.
+ERROR_BEHAVIORS = {
+    "vr_wapi_invalidaccesskey": api_error(InvalidAccessKeyError),
+    "vr_wapi_invalidaction": api_error(ProgrammingError, "Action not found."),
+    "vr_wapi_invalidapibatch": api_error(ProgrammingError, "Batch value is invalid."),
+    "vr_wapi_invalidovrcounty": api_error(
+        ProgrammingError, "Computed `county` field was invalid."
+    ),
+    "vr_wapi_invalidovrdl": validation_error(
+        "drivers_license", "invalid", "Invalid driver's license."
+    ),
+    "vr_wapi_invalidovrdlformat": validation_error(
+        "drivers_license", "invalid", "Invalid driver's license format."
+    ),
+    "vr_wapi_invalidovrdob": validation_error(
+        "birth_date", "invalid", "Invalid date of birth."
+    ),
+    "vr_wapi_invalidovremail": validation_error(
+        "email", "invalid", "Invalid email address."
+    ),
+    "vr_wapi_invalidovrmailingzipcode": validation_error(
+        "mailing_zipcode", "invalid", "Please enter a valid 5 or 9-digit ZIP code."
+    ),
+    "vr_wapi_invalidovrphone": validation_error(
+        "phone_number", "invalid", "Invalid phone number."
+    ),
+    "VR_WAPI_InvalidOVRPreviousCounty": validation_error(
+        "previous_county", "invalid", "Unknown county."
+    ),
+    "VR_WAPI_InvalidOVRPreviouszipcode": validation_error(
+        "previous_zip5", "invalid", "Please enter a valid 5-digit ZIP code."
+    ),
+    "VR_WAPI_InvalidOVRSSNformat": validation_error(
+        "ssn4", "invalid", "Please enter the last four digits of your SSN."
+    ),
+    "VR_WAPI_InvalidOVRzipcode": validation_error(
+        "zip5", "invalid", "Please enter a valid 5-digit ZIP code."
+    ),
+    "VR_WAPI_invalidpreviousregyear": validation_error(
+        "previous_year", "invalid", "Please enter a valid year."
+    ),
+    "VR_WAPI_InvalidReason": api_error(
+        ProgrammingError, "Invalid registration_kind provided."
+    ),
+    "VR_WAPI_MissingAccessKey": api_error(
+        ProgrammingError, "The PA client did not supply an API key."
+    ),
+    # TODO DAVE:
+    # ASK PA API TEAM: this error appears to apply to both `address`
+    # *and* to `mailing_address`. Is there a way to distinguish?
+    "VR_WAPI_MissingAddress": validation_error(
+        "mailing_address", "missing", "A complete address is required."
+    ),
+    "VR_WAPI_MissingAPIaction": api_error(
+        ProgrammingError, "The PA client did not supply an `action` value."
+    ),
+    "VR_WAPI_MissingCounty": api_error(
+        ProgrammingError,
+        "The PA client did not supply a `county` value in a `get_municipalities` call.",
+    ),
+    "VR_WAPI_MissingLanguage": api_error(
+        ProgrammingError, "The PA client did not supply a `language` value."
+    ),
+    "VR_WAPI_MissingOVRassistancedeclaration": validation_error(
+        "assistant_declaration",
+        "missing",
+        "Please indicate assistance was provided with the completion of this form.",
+    ),
+    "VR_WAPI_MissingOVRcity": validation_error(
+        "city", "missing", "Please enter a valid city."
+    ),
+    "VR_WAPI_MissingOVRcounty": api_error(
+        ProgrammingError, "Computed `county` field was missing."
+    ),
+    "VR_WAPI_MissingOVRdeclaration1": validation_error(
+        "confirm_declaration",
+        "missing",
+        "Please confirm you have read and agree to the terms.",
+    ),
+    "VR_WAPI_MissingOVRDL": validation_error(
+        "drivers_license",
+        "missing",
+        "Please supply a valid PA driver's license or PennDOT ID card number.",
+    ),
+    "VR_WAPI_MissingOVRfirstname": validation_error(
+        "first_name", "missing", "Your first name is required."
+    ),
+    "VR_WAPI_MissingOVRinterpreterlang": validation_error(
+        "interpreter_language", "missing", "Required if interpreter is checked."
+    ),
+    "VR_WAPI_MissingOVRisageover18": validation_error(
+        "will_be_18", "missing", "You must provide a response."
+    ),
+    "VR_WAPI_MissingOVRisuscitizen": validation_error(
+        "is_us_citizen", "missing", "You must provide a response."
+    ),
+    "VR_WAPI_MissingOVRlastname": validation_error(
+        "last_name", "missing", "Your last name is required."
+    ),
+    "VR_WAPI_MissingOVROtherParty": validation_error(
+        "other_party", "missing", "You must write-in a party of 'other' is selected."
+    ),
+    "VR_WAPI_MissingOVRPoliticalParty": validation_error(
+        "political_party", "missing", "Please select a political party."
+    ),
+    "VR_WAPI_MissingOVRPreviousAddress": validation_error(
+        "previous_address", "missing", "Required for an address change application."
+    ),
+    "VR_WAPI_MissingOVRPreviousCity": validation_error(
+        "previous_city", "missing", "Required for an address change application."
+    ),
+    "VR_WAPI_MissingOVRPreviousFirstName": validation_error(
+        "previous_first_name", "missing", "Required for a name change application."
+    ),
+    "VR_WAPI_MissingOVRPreviousLastName": validation_error(
+        "previous_last_name", "missing", "Required for a name change application."
+    ),
+    "VR_WAPI_MissingOVRPreviousZipCode": validation_error(
+        "previous_zip5", "missing", "Required for an address change application."
+    ),
+    "VR_WAPI_MissingOVRSSNDL": validation_error(
+        "ssn4", "missing", "Please supply the last four digits of your SSN."
+    ),
+    "VR_WAPI_MissingOVRstreetaddress": validation_error(
+        "address", "missing", "Please enter your street address."
+    ),
+    "VR_WAPI_MissingOVRtypeofassistance": validation_error(
+        "assistance_type", "missing", "Please select the type of assistance required."
+    ),
+    "VR_WAPI_MissingOVRzipcode": validation_error(
+        "zip5", "missing", "Please enter your 5-digit ZIP code."
+    ),
+    # CONSIDER DAVE: maybe this is a ProgrammingError?
+    "VR_WAPI_MissingReason": validation_error(
+        "registration_kind",
+        "missing",
+        "Please select at least one reason for change applications.",
+    ),
+    "VR_WAPI_PennDOTServiceDown": api_error(
+        ServiceUnavailableError,
+        "The PennDOT service is currently down. Please try again later.",
+    ),
+    "VR_WAPI_RequestError": api_error(
+        ProgrammingError, "The API request was invalid for unknown reasons."
+    ),
+    "VR_WAPI_ServiceError": api_error(
+        ServiceUnavailableError,
+        "The PA signature service is currently down. PLease try again later.",
+    ),
+    "VR_WAPI_SystemError": api_error(
+        ServiceUnavailableError,
+        "The PA voter registration service is currently down. Please try again later.",
+    ),
+    "VR_WAPI_InvalidOVRAssistedpersonphone": validation_error(
+        "assistant_phone", "invalid", "Please enter a valid phone number."
+    ),
+    "VR_WAPI_InvalidOVRsecondemail": validation_error(
+        "alternate_email", "invalid", "Please enter a valid email address."
+    ),
+    "VR_WAPI_Invalidsignaturestring": api_error(
+        ServiceUnavailableError,
+        "The signature upload was not successful. Please try again.",
+    ),
+    "VR_WAPI_Invalidsignaturetype": api_error(
+        ProgrammingError, "Invalid signature file type was sent to the API endpoint."
+    ),
+    "VR_WAPI_Invalidsignaturesize": api_error(
+        ProgrammingError,
+        "Invalid signature file size of >= 5MB was sent to the API endpoint.",
+    ),
+    "VR_WAPI_Invalidsignaturedimension": api_error(
+        ProgrammingError,
+        "A signature image of other than 180 x 60 pixels was sent to the API endpoint.",
+    ),
+    "VR_WAPI_Invalidsignaturecontrast": api_error(
+        ProgrammingError, "The signature has invalid contrast."
+    ),
+    "VR_WAPI_MissingOVRParty": validation_error(
+        "political_party", "missing", "Please select a political party."
+    ),
+    "VR_WAPI_InvalidOVRPoliticalParty": validation_error(
+        "political_party", "missing", "Please select a political party."
+    ),
+    "VR_WAPI_Invalidsignatureresolution": api_error(
+        ProgrammingError,
+        "Invalid signature resolution of other than 96dpi was sent to the endpoint.",
+    ),
+    "VR_WAPI_MissingOVRmailinballotaddr": validation_error(
+        "mail_in_address", "missing", "Please enter an address."
+    ),
+    "VR_WAPI_MissingOVRmailincity": validation_error(
+        "mail_in_city", "missing", "Please enter a city."
+    ),
+    "VR_WAPI_MissingOVRmailinstate": validation_error(
+        "mail_in_state", "missing", "Please enter a state."
+    ),
+    "VR_WAPI_InvalidOVRmailinzipcode": validation_error(
+        "mail_in_zipcode", "missing", "Please enter a 5 or 9-digit ZIP code."
+    ),
+    "VR_WAPI_MissingOVRmailinlivedsince": validation_error(
+        "mail_in_lived_since", "missing", "Please choose a date."
+    ),
+    "VR_WAPI_MissingOVRmailindeclaration": validation_error(
+        "mail_in_declaration",
+        "missing",
+        "Please indicate you have read and agreed to the terms.",
+    ),
+    "VR_WAPI_MailinNotEligible": validation_error(
+        "is_mail_in", "invalid", "This application is not mail-in eligible."
+    ),
+    "VR_WAPI_InvalidIsTransferPermanent": validation_error(
+        "transfer_permanent_status", "invalid", "This is not a valid value."
+    ),
+}
 
 
 # -----------------------------------------------------------------------------
@@ -363,17 +682,28 @@ class APIResponse(px.BaseXmlModel, tag="RESPONSE", frozen=True):
         # nor an application ID. We treat this as a registration error.
         return (self.error_code is not None) or (self.application_id is None)
 
-    def get_error_class(self) -> t.Type[APIError]:
-        """Get the error class for the error code, or the default error class."""
+    def get_error(self) -> APIError | None:
+        """Get the error object for the error code, or None."""
+        if not self.has_error():
+            return None
         if self.error_code is None:
-            return InvalidRegistrationError
-        return get_error_class(self.error_code)
+            assert self.application_id is None
+            return build_unexpected_error()
+        assert self.error_codes is not None
+        errors: list[APIError] = []
+        for error_code in self.error_codes:
+            behavior = ERROR_BEHAVIORS.get(error_code)
+            if behavior is None:
+                errors.append(build_unexpected_error(error_code))
+            else:
+                errors.append(behavior())
+        return merge_errors(errors)
 
     def raise_for_error(self) -> None:
         """Raise an exception if the response indicates an error."""
-        if self.has_error():
-            error_class = self.get_error_class()
-            raise error_class(f"codes: {self.error_codes}")
+        error = self.get_error()
+        if error is not None:
+            raise error
 
 
 # -----------------------------------------------------------------------------
@@ -1093,7 +1423,7 @@ class VoterIdentification(px.BaseXmlModel, frozen=True):
     )
     """The voter's PA driver's license number *or* PennDOT id card number."""
 
-    ssn4: str | None = px.element("ssn4", default=None, max_length=4)
+    ssn4: str | None = px.element("ssn4", default=None, max_length=4, min_length=4)
     """The last 4 digits of the voter's Social Security Number."""
 
     @px.computed_element(tag="donthavebothDLandSSN")  # type: ignore
@@ -1525,11 +1855,19 @@ class PennsylvaniaAPIClient:
     def _raw_get(self, action: Action, params: dict | None = None) -> str:
         """Perform a raw GET request to the Pennsylvania OVR API."""
         url = self.build_url(action, params)
-        response = self._client.get(url, headers={"Cache-Control": "no-cache"})
         try:
+            response = self._client.get(url, headers={"Cache-Control": "no-cache"})
             response.raise_for_status()
+        except httpx.TimeoutException as e:
+            raise TimeoutError() from e
+        except httpx.RequestError as e:
+            raise ServiceUnavailableError(
+                "Generic network error. Please try again later."
+            ) from e
         except httpx.HTTPStatusError as e:
-            raise UnexpectedResponseError() from e
+            raise ServiceUnavailableError(
+                "Unexpected response. Please try again later."
+            ) from e
         return response.json()
 
     def _raw_post(
@@ -1556,24 +1894,30 @@ class PennsylvaniaAPIClient:
 
         data_jsonable = {"ApplicationData": data_str}
         # print("TODO DAVE remove this: DATA jsonable: ", data_jsonable)
-        response = self._client.post(
-            url,
-            json=data_jsonable,
-            headers={"Cache-Control": "no-cache"},
-        )
         try:
+            response = self._client.post(
+                url,
+                json=data_jsonable,
+                headers={"Cache-Control": "no-cache"},
+            )
             response.raise_for_status()
+        except httpx.TimeoutException as e:
+            raise TimeoutError() from e
+        except httpx.RequestError as e:
+            raise ServiceUnavailableError(
+                "Generic network error. Please try again later."
+            ) from e
         except httpx.HTTPStatusError as e:
-            raise UnexpectedResponseError() from e
+            raise APIError("Unexpected status code. Please try again later.") from e
         return response.json()
 
     def _get(self, action: Action, params: dict | None = None) -> XmlElement:
         """Perform a GET request to the Pennsylvania OVR API."""
         raw = self._raw_get(action, params)
         try:
-            return xml_fromstring(raw)
+            return xml_fromstring(raw)  # type: ignore
         except Exception as e:
-            raise UnexpectedResponseError() from e
+            raise APIError("Unparsable response.") from e
 
     def _post(
         self, action: Action, data: XmlElement | str, params: dict | None = None
@@ -1581,9 +1925,9 @@ class PennsylvaniaAPIClient:
         """Perform a POST request to the Pennsylvania OVR API."""
         raw = self._raw_post(action, data, params)
         try:
-            return xml_fromstring(raw)
+            return xml_fromstring(raw)  # type: ignore
         except Exception as e:
-            raise UnexpectedResponseError() from e
+            raise APIError("Unparsable response.") from e
 
     def _raise_if_error(self, xml_response: XmlElement) -> None:
         """Raise an APIError or subclass if the xml_response indicates an error."""
