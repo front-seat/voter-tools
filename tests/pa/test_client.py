@@ -3,9 +3,11 @@ import io
 import pathlib
 from unittest import TestCase
 
+import httpx
 from PIL import Image
 
 from voter_tools.pa import client as c
+from voter_tools.pa.errors import APIValidationError, InvalidAccessKeyError
 
 
 class PAResponseDateTestCase(TestCase):
@@ -752,3 +754,115 @@ class VoterMailInBallotTestCase(TestCase):
             )
         except ValueError:
             self.fail()
+
+
+class ClientTestCase(TestCase):
+    def _valid_application(self) -> c.VoterApplication:
+        record = c.VoterApplicationRecord(
+            first_name="Test",
+            last_name="Applicant1",
+            is_us_citizen=True,
+            will_be_18=True,
+            political_party=c.PoliticalPartyChoice.DEMOCRATIC,
+            gender=c.GenderChoice.MALE,
+            email="test.applicant1@example.com",
+            birth_date=datetime.date(1980, 1, 1),
+            registration_kind=c.RegistrationKind.NEW,
+            confirm_declaration=True,
+            address="123 Main St",
+            city="Philadelphia",
+            zip5="19127",
+            drivers_license="12345678",
+        )
+        return c.VoterApplication(record=record)
+
+    def _client(self, handler):
+        return c.PennsylvaniaAPIClient(
+            api_url="http://test",
+            api_key="test",
+            _transport=httpx.MockTransport(handler),
+        )
+
+    def test_mock_success(self):
+        """Test submitting the simplest possible application."""
+
+        def handler(request: httpx.Request):
+            xml_response = (
+                """<RESPONSE><APPLICATIONID>good</APPLICATIONID></RESPONSE>"""
+            )
+            # Yes, it's super weird to set json=xml_response (a string!)
+            # but, uh, that's what the PA API endpoint actually does.
+            return httpx.Response(200, json=xml_response)
+
+        application = self._valid_application()
+        client = self._client(handler)
+        response = client.set_application(application)
+        self.assertFalse(response.has_error())
+
+    def test_empty_failure(self):
+        """Test behavior when API returns an empty response."""
+
+        # Unfortunately, this *does* happen. Inexplicably, at least in
+        # the sandbox.
+        def handler(request: httpx.Request):
+            xml_response = """<RESPONSE></RESPONSE>"""
+            return httpx.Response(200, json=xml_response)
+
+        application = self._valid_application()
+        client = self._client(handler)
+        with self.assertRaises(APIValidationError) as ctx:
+            _ = client.set_application(application)
+        self.assertEqual(ctx.exception.errors()[0].type, "unexpected")
+
+    def test_validation_error(self):
+        """Test behavior when API returns a validation error response."""
+
+        def handler(request: httpx.Request):
+            xml_response = """
+                <RESPONSE>
+                    <APPLICATIONID>123</APPLICATIONID>
+                    <ERROR>VR_WAPI_InvalidOVRDL</ERROR>
+                </RESPONSE>
+            """
+            return httpx.Response(200, json=xml_response)
+
+        application = self._valid_application()
+        client = self._client(handler)
+        with self.assertRaises(APIValidationError) as ctx:
+            _ = client.set_application(application)
+        self.assertEqual(ctx.exception.errors()[0].loc[0], "drivers_license")
+
+    def test_validation_errors(self):
+        """Test behavior when API returns multiple validation errors."""
+
+        def handler(request: httpx.Request):
+            xml_response = """
+                <RESPONSE>
+                    <ERROR>VR_WAPI_InvalidOVRDL</ERROR>
+                    <ERROR>VR_WAPI_InvalidOVRDOB</ERROR>
+                </RESPONSE>
+            """
+            return httpx.Response(200, json=xml_response)
+
+        application = self._valid_application()
+        client = self._client(handler)
+        with self.assertRaises(APIValidationError) as ctx:
+            _ = client.set_application(application)
+        self.assertEqual(ctx.exception.errors()[0].loc[0], "drivers_license")
+        self.assertEqual(ctx.exception.errors()[1].loc[0], "birth_date")
+
+    def test_invalid_access_key_error(self):
+        """Test behavior when API returns an invalid API key error."""
+
+        def handler(request: httpx.Request):
+            xml_response = """
+                <RESPONSE>
+                    <ERROR>VR_WAPI_InvalidAccessKey</ERROR>
+                </RESPONSE>
+            """
+            return httpx.Response(200, json=xml_response)
+
+        application = self._valid_application()
+        client = self._client(handler)
+        with self.assertRaises(InvalidAccessKeyError):
+            _ = client.set_application(application)

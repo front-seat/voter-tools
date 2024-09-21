@@ -365,10 +365,10 @@ class APIResponse(px.BaseXmlModel, tag="RESPONSE", frozen=True):
 
     def get_error(self) -> APIError | None:
         """Get the error object for the error code, or None."""
-        if not self.has_error():
+        if not self.error_code:
+            if self.application_id is None:
+                return APIValidationError.unexpected()
             return None
-        if self.application_id is None:
-            return APIValidationError.unexpected()
         return build_error_for_codes(self.error_codes or ())
 
     def raise_for_error(self) -> None:

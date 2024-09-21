@@ -66,7 +66,10 @@ class APIValidationError(APIError):
         """Initialize the error with the given errors."""
         self._errors = tuple(errors)
         locs = ", ".join(str(error.loc) for error in errors)
-        super().__init__(f"Validation error on {locs}")
+        message = f"Validation errors on {locs}"
+        if len(self._errors) == 1:
+            message += f": {self._errors[0].msg}"
+        super().__init__(message)
 
     def errors(self) -> tuple[APIErrorDetails, ...]:
         """Return the validation errors."""
@@ -90,7 +93,7 @@ class APIValidationError(APIError):
     @classmethod
     def unexpected(cls, code: str | None = None) -> "APIValidationError":
         """Create a generic validation error for unexpected error codes."""
-        code_f = f" ({code})" if code is not None else ""
+        code_f = f" ({code})" if code is not None else "(empty response)"
         details = APIErrorDetails(
             type="unexpected",
             msg=f"Unexpected error. Please correct your form and try again. {code_f}",
