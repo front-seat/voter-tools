@@ -15,6 +15,7 @@ from .errors import (
     APIError,
     APIValidationError,
     ServiceUnavailableError,
+    UnparsableResponseError,
     build_error_for_codes,
 )
 
@@ -1524,7 +1525,7 @@ class PennsylvaniaAPIClient:
         encoded = urlencode(query_prefix)
         return f"{self.api_url}?JSONv2&{encoded}"
 
-    def _raw_get(self, action: Action, params: dict | None = None) -> str:
+    def _get(self, action: Action, params: dict | None = None) -> str:
         """Perform a raw GET request to the Pennsylvania OVR API."""
         url = self.build_url(action, params)
         try:
@@ -1542,7 +1543,7 @@ class PennsylvaniaAPIClient:
             ) from e
         return response.json()
 
-    def _raw_post(
+    def _post(
         self,
         action: Action,
         data: XmlElement | str,  # type: ignore
@@ -1565,7 +1566,6 @@ class PennsylvaniaAPIClient:
         assert isinstance(data_str, str), f"DATA was an unexpected type: {type(data)}"
 
         data_jsonable = {"ApplicationData": data_str}
-        # print("TODO DAVE remove this: DATA jsonable: ", data_jsonable)
         try:
             response = self._client.post(
                 url,
@@ -1583,37 +1583,6 @@ class PennsylvaniaAPIClient:
             raise APIError("Unexpected status code. Please try again later.") from e
         return response.json()
 
-    def _get(self, action: Action, params: dict | None = None) -> XmlElement:
-        """Perform a GET request to the Pennsylvania OVR API."""
-        raw = self._raw_get(action, params)
-        try:
-            return xml_fromstring(raw)  # type: ignore
-        except Exception as e:
-            raise APIError("Unparsable response.") from e
-
-    def _post(
-        self, action: Action, data: XmlElement | str, params: dict | None = None
-    ) -> XmlElement:
-        """Perform a POST request to the Pennsylvania OVR API."""
-        raw = self._raw_post(action, data, params)
-        try:
-            return xml_fromstring(raw)  # type: ignore
-        except Exception as e:
-            raise APIError("Unparsable response.") from e
-
-    def _raise_if_error(self, xml_response: XmlElement) -> None:
-        """Raise an APIError or subclass if the xml_response indicates an error."""
-        # Regardless of the specific invocation we just made, the API *always*
-        # returns a "generic" API response when there's an error code.
-        try:
-            # ET.indent(xml_response)
-            # ET.dump(xml_response)
-            api_response = APIResponse.from_xml_tree(xml_response)
-            api_response.raise_for_error()
-        except px.ParsingError:
-            # The response was not a "generic" response so there was no error.
-            pass
-
     def invoke(
         self,
         action: Action,
@@ -1625,28 +1594,39 @@ class PennsylvaniaAPIClient:
 
         Look for errors in the response and raise an exception if one is found.
         """
-        response_data = (
-            self._post(action, data, params)
-            if data is not None
-            else self._get(action, params)
+        raw = (
+            self._get(action, params)
+            if data is None
+            else self._post(action, data, params)
         )
-        self._raise_if_error(response_data)
-        return response_data
+        try:
+            return xml_fromstring(raw)  # type: ignore
+        except Exception as e:
+            raise UnparsableResponseError() from e
 
     def get_application_setup(self) -> SetupResponse:
         """Get the possible values for a voter reg + optional mail-in ballot app."""
         data = self.invoke(Action.GET_APPLICATION_SETUP)
-        return SetupResponse.from_xml_tree(data)
+        try:
+            return SetupResponse.from_xml_tree(data)
+        except (px.ParsingError, p.ValidationError) as e:
+            raise UnparsableResponseError() from e
 
     def get_ballot_application_setup(self) -> SetupResponse:
         """Get the possible values for a mail-in ballot app."""
         data = self.invoke(Action.GET_BALLOT_APPLICATION_SETUP)
-        return SetupResponse.from_xml_tree(data)
+        try:
+            return SetupResponse.from_xml_tree(data)
+        except (px.ParsingError, p.ValidationError) as e:
+            raise UnparsableResponseError() from e
 
     def get_languages(self) -> LanguagesResponse:
         """Get the available languages for the PA OVR API."""
         data = self.invoke(Action.GET_LANGUAGES)
-        return LanguagesResponse.from_xml_tree(data)
+        try:
+            return LanguagesResponse.from_xml_tree(data)
+        except (px.ParsingError, p.ValidationError) as e:
+            raise UnparsableResponseError() from e
 
     def get_xml_template(self) -> XmlElement:
         """Get XML tags and format for voter reg + optional mail-in ballot app."""
@@ -1659,22 +1639,59 @@ class PennsylvaniaAPIClient:
     def get_error_values(self) -> ErrorValuesResponse:
         """Get the possible error values for the PA OVR API."""
         data = self.invoke(Action.GET_ERROR_VALUES)
-        return ErrorValuesResponse.from_xml_tree(data)
+        try:
+            return ErrorValuesResponse.from_xml_tree(data)
+        except (px.ParsingError, p.ValidationError) as e:
+            raise UnparsableResponseError() from e
 
     def get_municipalities(self, county: str) -> MunicipalitiesResponse:
         """Get the available municipalities in a given county."""
         data = self.invoke(Action.GET_MUNICIPALITIES, params={"County": county})
-        return MunicipalitiesResponse.from_xml_tree(data)
+        try:
+            return MunicipalitiesResponse.from_xml_tree(data)
+        except (px.ParsingError, p.ValidationError) as e:
+            raise UnparsableResponseError() from e
 
-    def set_application(self, application: VoterApplication) -> APIResponse:
-        """Submit a voter registration + optional mail-in ballot app."""
+    def set_application(
+        self, application: VoterApplication, raise_validation_error: bool = True
+    ) -> APIResponse:
+        """
+        Submit a voter registration + optional mail-in ballot app.
+
+        If the PA API returns a response with a validation error, and
+        `raise_validation_error` is True, this method will raise an exception.
+        Otherwise, the response will be returned as-is.
+        """
         xml_tree = application.to_xml_tree()
         data = self.invoke(Action.SET_APPLICATION, data=xml_tree)
-        return APIResponse.from_xml_tree(data)
+        try:
+            api_response = APIResponse.from_xml_tree(data)
+        except (px.ParsingError, p.ValidationError) as e:
+            raise UnparsableResponseError() from e
+        # CONSIDER allowing callers to decide whether to raise here or not.
+        if raise_validation_error:
+            api_response.raise_for_error()
+            assert not api_response.has_error()
+        return api_response
 
-    def set_ballot_application(self, application: VoterApplication) -> APIResponse:
-        """Submit a mail-in ballot app."""
+    def set_ballot_application(
+        self, application: VoterApplication, raise_validation_error: bool = True
+    ) -> APIResponse:
+        """
+        Submit a mail-in ballot app.
+
+        If the PA API returns a response with a validation error, and
+        `raise_validation_error` is True, this method will raise an exception.
+        Otherwise, the response will be returned as-is.
+        """
         data = self.invoke(
             Action.SET_BALLOT_APPLICATION, data=application.to_xml_tree()
         )
-        return APIResponse.from_xml_tree(data)
+        try:
+            api_response = APIResponse.from_xml_tree(data)
+        except (px.ParsingError, p.ValidationError) as e:
+            raise UnparsableResponseError() from e
+        if raise_validation_error:
+            api_response.raise_for_error()
+            assert not api_response.has_error()
+        return api_response

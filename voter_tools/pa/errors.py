@@ -33,6 +33,12 @@ class InvalidAccessKeyError(APIError):
         super().__init__(message or self._default_message)
 
 
+class UnparsableResponseError(APIError):
+    """The PA API returned a response that could not be parsed."""
+
+    pass
+
+
 class TimeoutError(APIError):
     """Raised when a request to the server times out."""
 

@@ -814,6 +814,20 @@ class ClientTestCase(TestCase):
             _ = client.set_application(application)
         self.assertEqual(ctx.exception.errors()[0].type, "unexpected")
 
+    def test_empty_failure_do_not_raise(self):
+        """Test behavior when API returns an empty response."""
+
+        # Unfortunately, this *does* happen. Inexplicably, at least in
+        # the sandbox.
+        def handler(request: httpx.Request):
+            xml_response = """<RESPONSE></RESPONSE>"""
+            return httpx.Response(200, json=xml_response)
+
+        application = self._valid_application()
+        client = self._client(handler)
+        response = client.set_application(application, raise_validation_error=False)
+        self.assertTrue(response.has_error())
+
     def test_validation_error(self):
         """Test behavior when API returns a validation error response."""
 
@@ -865,4 +879,27 @@ class ClientTestCase(TestCase):
         application = self._valid_application()
         client = self._client(handler)
         with self.assertRaises(InvalidAccessKeyError):
+            # Set raise_exception INTENTIONALLY to false
+            _ = client.set_application(application)
+
+    def test_unparsable_response_xml(self):
+        """Test behavior when API returns an unparsable response."""
+
+        def handler(request: httpx.Request):
+            return httpx.Response(200, content=b"not xml")
+
+        application = self._valid_application()
+        client = self._client(handler)
+        with self.assertRaises(ValueError):
+            _ = client.set_application(application)
+
+    def test_unparsable_response_xml_root(self):
+        """Test behavior when API returns an unparsable response."""
+
+        def handler(request: httpx.Request):
+            return httpx.Response(200, content=b"<BINGO />")
+
+        application = self._valid_application()
+        client = self._client(handler)
+        with self.assertRaises(ValueError):
             _ = client.set_application(application)
