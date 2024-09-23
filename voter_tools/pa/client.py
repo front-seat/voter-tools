@@ -1541,7 +1541,10 @@ class PennsylvaniaAPIClient:
             raise ServiceUnavailableError(
                 "Unexpected response. Please try again later."
             ) from e
-        return response.json()
+        try:
+            return response.json()
+        except Exception as e:
+            raise UnparsableResponseError("Invalid JSON returned.") from e
 
     def _post(
         self,
@@ -1581,7 +1584,10 @@ class PennsylvaniaAPIClient:
             ) from e
         except httpx.HTTPStatusError as e:
             raise APIError("Unexpected status code. Please try again later.") from e
-        return response.json()
+        try:
+            return response.json()
+        except Exception as e:
+            raise UnparsableResponseError("Invalid JSON returned.") from e
 
     def invoke(
         self,
@@ -1602,7 +1608,7 @@ class PennsylvaniaAPIClient:
         try:
             return xml_fromstring(raw)  # type: ignore
         except Exception as e:
-            raise UnparsableResponseError() from e
+            raise UnparsableResponseError("Invalid XML returned.") from e
 
     def get_application_setup(self) -> SetupResponse:
         """Get the possible values for a voter reg + optional mail-in ballot app."""
@@ -1610,7 +1616,7 @@ class PennsylvaniaAPIClient:
         try:
             return SetupResponse.from_xml_tree(data)
         except (px.ParsingError, p.ValidationError) as e:
-            raise UnparsableResponseError() from e
+            raise UnparsableResponseError("Invalid schema returned.") from e
 
     def get_ballot_application_setup(self) -> SetupResponse:
         """Get the possible values for a mail-in ballot app."""
@@ -1618,7 +1624,7 @@ class PennsylvaniaAPIClient:
         try:
             return SetupResponse.from_xml_tree(data)
         except (px.ParsingError, p.ValidationError) as e:
-            raise UnparsableResponseError() from e
+            raise UnparsableResponseError("Invalid schema returned.") from e
 
     def get_languages(self) -> LanguagesResponse:
         """Get the available languages for the PA OVR API."""
@@ -1626,7 +1632,7 @@ class PennsylvaniaAPIClient:
         try:
             return LanguagesResponse.from_xml_tree(data)
         except (px.ParsingError, p.ValidationError) as e:
-            raise UnparsableResponseError() from e
+            raise UnparsableResponseError("Invalid schema returned.") from e
 
     def get_xml_template(self) -> XmlElement:
         """Get XML tags and format for voter reg + optional mail-in ballot app."""
@@ -1642,7 +1648,7 @@ class PennsylvaniaAPIClient:
         try:
             return ErrorValuesResponse.from_xml_tree(data)
         except (px.ParsingError, p.ValidationError) as e:
-            raise UnparsableResponseError() from e
+            raise UnparsableResponseError("Invalid schema returned.") from e
 
     def get_municipalities(self, county: str) -> MunicipalitiesResponse:
         """Get the available municipalities in a given county."""
@@ -1650,7 +1656,7 @@ class PennsylvaniaAPIClient:
         try:
             return MunicipalitiesResponse.from_xml_tree(data)
         except (px.ParsingError, p.ValidationError) as e:
-            raise UnparsableResponseError() from e
+            raise UnparsableResponseError("Invalid schema returned.") from e
 
     def set_application(
         self, application: VoterApplication, raise_validation_error: bool = True
@@ -1667,7 +1673,7 @@ class PennsylvaniaAPIClient:
         try:
             api_response = APIResponse.from_xml_tree(data)
         except (px.ParsingError, p.ValidationError) as e:
-            raise UnparsableResponseError() from e
+            raise UnparsableResponseError("Invalid schema returned.") from e
         # CONSIDER allowing callers to decide whether to raise here or not.
         if raise_validation_error:
             api_response.raise_for_error()
@@ -1690,7 +1696,7 @@ class PennsylvaniaAPIClient:
         try:
             api_response = APIResponse.from_xml_tree(data)
         except (px.ParsingError, p.ValidationError) as e:
-            raise UnparsableResponseError() from e
+            raise UnparsableResponseError("Invalid schema returned.") from e
         if raise_validation_error:
             api_response.raise_for_error()
             assert not api_response.has_error()

@@ -7,7 +7,11 @@ import httpx
 from PIL import Image
 
 from voter_tools.pa import client as c
-from voter_tools.pa.errors import APIValidationError, InvalidAccessKeyError
+from voter_tools.pa.errors import (
+    APIValidationError,
+    InvalidAccessKeyError,
+    UnparsableResponseError,
+)
 
 
 class PAResponseDateTestCase(TestCase):
@@ -882,24 +886,35 @@ class ClientTestCase(TestCase):
             # Set raise_exception INTENTIONALLY to false
             _ = client.set_application(application)
 
-    def test_unparsable_response_xml(self):
+    def test_unparsable_response_json(self):
         """Test behavior when API returns an unparsable response."""
 
         def handler(request: httpx.Request):
-            return httpx.Response(200, content=b"not xml")
+            return httpx.Response(200, content=b"not even json")
 
         application = self._valid_application()
         client = self._client(handler)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UnparsableResponseError):
+            _ = client.set_application(application)
+
+    def test_unparsable_response_not_xml(self):
+        """Test behavior when API returns an unparsable response."""
+
+        def handler(request: httpx.Request):
+            return httpx.Response(200, json="not xml")
+
+        application = self._valid_application()
+        client = self._client(handler)
+        with self.assertRaises(UnparsableResponseError):
             _ = client.set_application(application)
 
     def test_unparsable_response_xml_root(self):
         """Test behavior when API returns an unparsable response."""
 
         def handler(request: httpx.Request):
-            return httpx.Response(200, content=b"<BINGO />")
+            return httpx.Response(200, json="<BINGO />")
 
         application = self._valid_application()
         client = self._client(handler)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UnparsableResponseError):
             _ = client.set_application(application)
