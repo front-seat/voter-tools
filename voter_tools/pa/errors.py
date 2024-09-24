@@ -148,7 +148,7 @@ def build_error_for_codes(codes: tuple[str, ...]) -> APIError | None:
     """
     errors: list[APIError] = []
     for code in codes:
-        error = ERROR_MAP.get(code.lower())
+        error = ERROR_MAP.get(_simplify_error_code(code))
         if error is None:
             error = APIValidationError.unexpected(code)
         errors.append(error)
@@ -177,206 +177,227 @@ def build_error_for_codes(codes: tuple[str, ...]) -> APIError | None:
 # there are several different errors that all amount to "you didn't select
 # a valid `political_party`.". Some errors are ambiguous or may be re-used
 # for multiple fields. It's a mess, folks! So be it.
-ERROR_MAP: dict[str, APIError] = {
-    "vr_wapi_invalidaccesskey": InvalidAccessKeyError(),
-    "vr_wapi_invalidaction": ProgrammingError("Action not found."),
-    "vr_wapi_invalidapibatch": ProgrammingError("Batch value is invalid."),
-    "vr_wapi_invalidovrcounty": ProgrammingError(
+BASE_ERROR_MAP: dict[str, APIError] = {
+    "VR_WAPI_InvalidAccessKey": InvalidAccessKeyError(),
+    "VR_WAPI_InvalidAction": ProgrammingError("Action not found."),
+    "VR_WAPI_InvalidAPIbatch": ProgrammingError("Batch value is invalid."),
+    "VR_WAPI_InvalidOVRCounty": ProgrammingError(
         "Computed `county` field was invalid."
     ),
-    "vr_wapi_invalidovrdl": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRDL": APIValidationError.simple(
         "drivers_license", "invalid", "Invalid driver's license."
     ),
-    "vr_wapi_invalidovrdlformat": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRDLformat": APIValidationError.simple(
         "drivers_license", "invalid", "Invalid driver's license format."
     ),
-    "vr_wapi_invalidovrdob": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRDOB": APIValidationError.simple(
         "birth_date", "invalid", "Invalid date of birth."
     ),
-    "vr_wapi_invalidovremail": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRemail": APIValidationError.simple(
         "email", "invalid", "Invalid email address."
     ),
-    "vr_wapi_invalidovrmailingzipcode": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRmailingzipcode": APIValidationError.simple(
         "mailing_zipcode", "invalid", "Please enter a valid 5 or 9-digit ZIP code."
     ),
-    "vr_wapi_invalidovrphone": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRphone": APIValidationError.simple(
         "phone_number", "invalid", "Invalid phone number."
     ),
-    "vr_wapi_invalidovrpreviouscounty": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRPreviousCounty": APIValidationError.simple(
         "previous_county", "invalid", "Unknown county."
     ),
-    "vr_wapi_invalidovrpreviouszipcode": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRPreviouszipcode": APIValidationError.simple(
         "previous_zip5", "invalid", "Please enter a valid 5-digit ZIP code."
     ),
-    "vr_wapi_invalidovrssnformat": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRSSNformat": APIValidationError.simple(
         "ssn4", "invalid", "Please enter the last four digits of your SSN."
     ),
-    "vr_wapi_invalidovrzipcode": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRzipcode": APIValidationError.simple(
         "zip5", "invalid", "Please enter a valid 5-digit ZIP code."
     ),
-    "vr_wapi_invalidpreviousregyear": APIValidationError.simple(
+    "VR_WAPI_invalidpreviousregyear": APIValidationError.simple(
         "previous_year", "invalid", "Please enter a valid year."
     ),
-    "vr_wapi_invalidreason": ProgrammingError("Invalid registration_kind provided."),
-    "vr_wapi_missingaccesskey": ProgrammingError(
+    "VR_WAPI_InvalidReason": ProgrammingError("Invalid registration_kind provided."),
+    "VR_WAPI_MissingAccessKey": ProgrammingError(
         "The PA client did not supply an API key."
     ),
     # TODO DAVE:
     # ASK PA API TEAM: this error appears to apply to both `address`
     # *and* to `mailing_address`. Is there a way to distinguish?
-    "vr_wapi_missingaddress": APIValidationError.simple(
+    "VR_WAPI_MissingAddress": APIValidationError.simple(
         "mailing_address", "missing", "A complete address is required."
     ),
-    "vr_wapi_missingapiaction": ProgrammingError(
+    "VR_WAPI_MissingAPIaction": ProgrammingError(
         "The PA client did not supply an `action` value."
     ),
-    "vr_wapi_missingcounty": ProgrammingError(
+    "VR_WAPI_MissingCounty": ProgrammingError(
         "The PA client did not supply a `county` value in a `get_municipalities` call.",
     ),
-    "vr_wapi_missinglanguage": ProgrammingError(
+    "VR_WAPI_MissingLanguage": ProgrammingError(
         "The PA client did not supply a `language` value."
     ),
-    "vr_wapi_missingovrassistancedeclaration": APIValidationError.simple(
+    "VR_WAPI_MissingOVRassistancedeclaration": APIValidationError.simple(
         "assistant_declaration",
         "missing",
         "Please indicate assistance was provided with the completion of this form.",
     ),
-    "vr_wapi_missingovrcity": APIValidationError.simple(
+    "VR_WAPI_MissingOVRcity": APIValidationError.simple(
         "city", "missing", "Please enter a valid city."
     ),
-    "vr_wapi_missingovrcounty": ProgrammingError(
+    "VR_WAPI_MissingOVRcounty": ProgrammingError(
         "Computed `county` field was missing."
     ),
-    "vr_wapi_missingovrdeclaration1": APIValidationError.simple(
+    "VR_WAPI_MissingOVRdeclaration1": APIValidationError.simple(
         "confirm_declaration",
         "missing",
         "Please confirm you have read and agree to the terms.",
     ),
-    "vr_wapi_missingovrdl": APIValidationError.simple(
+    "VR_WAPI_MissingOVRDL": APIValidationError.simple(
         "drivers_license",
         "missing",
         "Please supply a valid PA driver's license or PennDOT ID card number.",
     ),
-    "vr_wapi_missingovrfirstname": APIValidationError.simple(
+    "VR_WAPI_MissingOVRfirstname": APIValidationError.simple(
         "first_name", "missing", "Your first name is required."
     ),
-    "vr_wapi_missingovrinterpreterlang": APIValidationError.simple(
+    "VR_WAPI_MissingOVRinterpreterlang": APIValidationError.simple(
         "interpreter_language", "missing", "Required if interpreter is checked."
     ),
-    "vr_wapi_missingovrisageover18": APIValidationError.simple(
+    "VR_WAPI_MissingOVRisageover18": APIValidationError.simple(
         "will_be_18", "missing", "You must provide a response."
     ),
-    "vr_wapi_missingovrisuscitizen": APIValidationError.simple(
+    "VR_WAPI_MissingOVRisuscitizen": APIValidationError.simple(
         "is_us_citizen", "missing", "You must provide a response."
     ),
-    "vr_wapi_missingovrlastname": APIValidationError.simple(
+    "VR_WAPI_MissingOVRlastname": APIValidationError.simple(
         "last_name", "missing", "Your last name is required."
     ),
-    "vr_wapi_missingovrotherparty": APIValidationError.simple(
+    "VR_WAPI_MissingOVROtherParty": APIValidationError.simple(
         "other_party", "missing", "You must write-in a party of 'other' is selected."
     ),
-    "vr_wapi_missingovrpoliticalparty": APIValidationError.simple(
+    "VR_WAPI_MissingOVRPoliticalParty": APIValidationError.simple(
         "political_party", "missing", "Please select a political party."
     ),
-    "vr_wapi_missingovrpreviousaddress": APIValidationError.simple(
+    "VR_WAPI_MissingOVRPreviousAddress": APIValidationError.simple(
         "previous_address", "missing", "Required for an address change application."
     ),
-    "vr_wapi_missingovrpreviouscity": APIValidationError.simple(
+    "VR_WAPI_MissingOVRPreviousCity": APIValidationError.simple(
         "previous_city", "missing", "Required for an address change application."
     ),
-    "vr_wapi_missingovrpreviousfirstname": APIValidationError.simple(
+    "VR_WAPI_MissingOVRPreviousFirstName": APIValidationError.simple(
         "previous_first_name", "missing", "Required for a name change application."
     ),
-    "vr_wapi_missingovrpreviouslastname": APIValidationError.simple(
+    "VR_WAPI_MissingOVRPreviousLastName": APIValidationError.simple(
         "previous_last_name", "missing", "Required for a name change application."
     ),
-    "vr_wapi_missingovrpreviouszipcode": APIValidationError.simple(
+    "VR_WAPI_MissingOVRPreviousZipCode": APIValidationError.simple(
         "previous_zip5", "missing", "Required for an address change application."
     ),
-    "vr_wapi_missingovrssndl": APIValidationError.simple(
+    "VR_WAPI_MissingOVRSSNDL": APIValidationError.simple(
         "ssn4", "missing", "Please supply the last four digits of your SSN."
     ),
-    "vr_wapi_missingovrstreetaddress": APIValidationError.simple(
+    "VR_WAPI_MissingOVRstreetaddress": APIValidationError.simple(
         "address", "missing", "Please enter your street address."
     ),
-    "vr_wapi_missingovrtypeofassistance": APIValidationError.simple(
+    "VR_WAPI_MissingOVRtypeofassistance": APIValidationError.simple(
         "assistance_type", "missing", "Please select the type of assistance required."
     ),
-    "vr_wapi_missingovrzipcode": APIValidationError.simple(
+    "VR_WAPI_MissingOVRzipcode": APIValidationError.simple(
         "zip5", "missing", "Please enter your 5-digit ZIP code."
     ),
     # CONSIDER DAVE: maybe this is a ProgrammingError?
-    "vr_wapi_missingreason": APIValidationError.simple(
+    "VR_WAPI_MissingReason": APIValidationError.simple(
         "registration_kind",
         "missing",
         "Please select at least one reason for change applications.",
     ),
-    "vr_wapi_penndotservicedown": ServiceUnavailableError(
+    "VR_WAPI_PennDOTServiceDown": ServiceUnavailableError(
         "The PennDOT service is currently down. Please try again later.",
     ),
-    "vr_wapi_requesterror": ProgrammingError(
+    "VR_WAPI_RequestError": ProgrammingError(
         "The API request was invalid for unknown reasons."
     ),
-    "vr_wapi_serviceerror": ServiceUnavailableError(
+    "VR_WAPI_ServiceError": ServiceUnavailableError(
         "The PA signature service is currently down. PLease try again later.",
     ),
-    "vr_wapi_systemerror": ServiceUnavailableError(
+    "VR_WAPI_SystemError": ServiceUnavailableError(
         "The PA voter registration service is currently down. Please try again later.",
     ),
-    "vr_wapi_invalidovrassistedpersonphone": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRAssistedpersonphone": APIValidationError.simple(
         "assistant_phone", "invalid", "Please enter a valid phone number."
     ),
-    "vr_wapi_invalidovrsecondemail": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRsecondemail": APIValidationError.simple(
         "alternate_email", "invalid", "Please enter a valid email address."
     ),
-    "vr_wapi_invalidsignaturestring": ServiceUnavailableError(
+    "VR_WAPI_Invalidsignaturestring": ServiceUnavailableError(
         "The signature upload was not successful. Please try again.",
     ),
-    "vr_wapi_invalidsignaturetype": ProgrammingError(
+    "VR_WAPI_Invalidsignaturetype": ProgrammingError(
         "Invalid signature file type was sent to the API endpoint."
     ),
-    "vr_wapi_invalidsignaturesize": ProgrammingError(
+    "VR_WAPI_Invalidsignaturesize": ProgrammingError(
         "Invalid signature file size of >= 5MB was sent to the API endpoint.",
     ),
-    "vr_wapi_invalidsignaturedimension": ProgrammingError(
+    "VR_WAPI_Invalidsignaturedimension": ProgrammingError(
         "A signature image of other than 180 x 60 pixels was sent to the API endpoint.",
     ),
-    "vr_wapi_invalidsignaturecontrast": ProgrammingError(
+    "VR_WAPI_Invalidsignaturecontrast": ProgrammingError(
         "The signature has invalid contrast."
     ),
-    "vr_wapi_missingovrparty": APIValidationError.simple(
+    "VR_WAPI_MissingOVRParty": APIValidationError.simple(
         "political_party", "missing", "Please select a political party."
     ),
-    "vr_wapi_invalidovrpoliticalparty": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRPoliticalParty": APIValidationError.simple(
         "political_party", "missing", "Please select a political party."
     ),
-    "vr_wapi_invalidsignatureresolution": ProgrammingError(
+    "VR_WAPI_Invalidsignatureresolution": ProgrammingError(
         "Invalid signature resolution of other than 96dpi was sent to the endpoint.",
     ),
-    "vr_wapi_missingovrmailinballotaddr": APIValidationError.simple(
+    "VR_WAPI_MissingOVRmailinballotaddr": APIValidationError.simple(
         "mail_in_address", "missing", "Please enter an address."
     ),
-    "vr_wapi_missingovrmailincity": APIValidationError.simple(
+    "VR_WAPI_MissingOVRmailincity": APIValidationError.simple(
         "mail_in_city", "missing", "Please enter a city."
     ),
-    "vr_wapi_missingovrmailinstate": APIValidationError.simple(
+    "VR_WAPI_MissingOVRmailinstate": APIValidationError.simple(
         "mail_in_state", "missing", "Please enter a state."
     ),
-    "vr_wapi_invalidovrmailinzipcode": APIValidationError.simple(
+    "VR_WAPI_InvalidOVRmailinzipcode": APIValidationError.simple(
         "mail_in_zipcode", "missing", "Please enter a 5 or 9-digit ZIP code."
     ),
-    "vr_wapi_missingovrmailinlivedsince": APIValidationError.simple(
+    "VR_WAPI_MissingOVRmailinlivedsince": APIValidationError.simple(
         "mail_in_lived_since", "missing", "Please choose a date."
     ),
-    "vr_wapi_missingovrmailindeclaration": APIValidationError.simple(
+    "VR_WAPI_MissingOVRmailindeclaration": APIValidationError.simple(
         "mail_in_declaration",
         "missing",
         "Please indicate you have read and agreed to the terms.",
     ),
-    "vr_wapi_mailinnoteligible": APIValidationError.simple(
+    "VR_WAPI_MailinNotEligible": APIValidationError.simple(
         "is_mail_in", "invalid", "This application is not mail-in eligible."
     ),
-    "vr_wapi_invalidistransferpermanent": APIValidationError.simple(
+    "VR_WAPI_InvalidIsTransferPermanent": APIValidationError.simple(
         "transfer_permanent_status", "invalid", "This is not a valid value."
     ),
+}
+
+
+def _simplify_error_code(code: str) -> str:
+    """Map an error code received from the PA API to a simpler form."""
+    # We do this because, unfortunately, we've encountered cases where the
+    # PA API sandbox endpoint sends very similar looking -- but not identical --
+    # error codes back to us for days at a time. We send an email to the fine
+    # folks in Harrisburg, and eventually things get squared away. It's impossible
+    # to *entirely* eliminate this problem, but we can at least make it a tiny
+    # bit less likely based on our own observations. In the worst case, if this
+    # fails, we'll just raise generic "unexpected" errors.
+
+    splits = code.split("_")  # sometimes the prefixes change slightly
+    code = splits[-1]  # the final part of the code is the most stable
+    code = code.replace("OVR", "")  # sometimes this goes away
+    return code.lower()  # the capitalization is inconsistent
+
+
+ERROR_MAP: dict[str, APIError] = {
+    _simplify_error_code(code): error for code, error in BASE_ERROR_MAP.items()
 }
