@@ -340,13 +340,13 @@ class APIResponse(px.BaseXmlModel, tag="RESPONSE", frozen=True):
         if value is None:
             return None
         if isinstance(value, str):
-            return tuple(value.split(","))
+            return tuple(v for v in value.split(",") if v)
         # We assume there's something iterable here.
         try:
             # First, collapse that thing back into a string.
             value = ",".join(value)
             # Now split it back into a tuple. (Yeah, I know; sorry.)
-            return tuple(value.split(","))
+            return tuple(v for v in value.split(",") if v)
         except Exception as e:
             # Nope, not even iterable.
             raise ValueError("Error codes must be a string or an iterable.") from e
@@ -1606,6 +1606,7 @@ class PennsylvaniaAPIClient:
             else self._post(action, data, params)
         )
         try:
+            # print("RAW RESPONSE: ", raw)
             return xml_fromstring(raw)  # type: ignore
         except Exception as e:
             raise UnparsableResponseError("Invalid XML returned.") from e
