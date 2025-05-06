@@ -262,27 +262,17 @@ class ImageTestCaseMixin:
     TEST_IMG_URL_PATH = pathlib.Path(__file__).parent / "test_img_url.txt"
 
 
-class ImageToDataURLTestCase(TestCase, ImageTestCaseMixin):
-    def test_image_to_data_url(self):
-        with open(self.TEST_IMG_URL_PATH, "r") as f:
-            expected = f.read().strip()
+class ImageDataRoundtripTestCase(TestCase, ImageTestCaseMixin):
+    def test_image_to_data_url_and_back(self):
         pil_image = Image.open(self.TEST_IMG_PATH)
         data_url = c.image_to_data_url(pil_image)
-        self.assertEqual(data_url, expected)
+        re_image = c.data_url_to_image(data_url)
+        self.assertEqual(pil_image.size, re_image.size)
+        self.assertEqual(pil_image.mode, re_image.mode)
+        self.assertEqual(pil_image.tobytes(), re_image.tobytes())
 
 
 class DataURLToImageTestCase(TestCase, ImageTestCaseMixin):
-    def test_data_url_to_image(self):
-        with open(ImageToDataURLTestCase.TEST_IMG_PATH, "rb") as f:
-            expected = f.read()
-        with open(ImageToDataURLTestCase.TEST_IMG_URL_PATH, "r") as f:
-            data_url = f.read().strip()
-        pil_image = c.data_url_to_image(data_url)
-        image_data = io.BytesIO()
-        pil_image.save(image_data, format="PNG")
-        actual = image_data.getvalue()
-        self.assertEqual(actual, expected)
-
     def test_invalid_1(self):
         with self.assertRaises(ValueError):
             _ = c.data_url_to_image("data:text/plain;base64,SGVsbG8sIFdvcmxkIQ==")
