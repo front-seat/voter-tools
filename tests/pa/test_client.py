@@ -253,6 +253,26 @@ class TrueBitTestCase(TestCase):
         self.assertEqual(parsed, expected)
 
 
+class EmptyStrNoneTestCase(TestCase):
+    def test_empty_str(self):
+        """Test that empty strings are converted to None."""
+        expected = None
+        parsed = c.validate_empty_str_as_none("")
+        self.assertEqual(parsed, expected)
+
+    def test_non_empty_str(self):
+        """Test that non-empty strings are not converted to None."""
+        expected = "not empty"
+        parsed = c.validate_empty_str_as_none(expected)
+        self.assertEqual(parsed, expected)
+
+    def test_none(self):
+        """Test that None remains None."""
+        expected = None
+        parsed = c.validate_empty_str_as_none(None)  # type: ignore
+        self.assertEqual(parsed, expected)
+
+
 class ImageTestCaseMixin:
     # Empty 1x1 transparent GIF
     EMPTY_GIF = (

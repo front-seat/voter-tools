@@ -196,6 +196,19 @@ TrueBit: t.TypeAlias = t.Annotated[
 ]
 
 
+def validate_empty_str_as_none(v: str | None) -> str | None:
+    """Validate that an empty string is treated as None."""
+    if v == "":
+        return None
+    return v
+
+
+EmptyStrNone: t.TypeAlias = t.Annotated[
+    str | None,
+    p.BeforeValidator(validate_empty_str_as_none),
+]
+
+
 def _binaryio_to_image(bio: t.BinaryIO) -> Image.Image:
     """Convert a binary file-like object to a PIL Image."""
     # Open the image from the file-like object.
@@ -283,11 +296,13 @@ def validate_signature_image(
     else:
         raise ValueError("Invalid signature image data kind.")
 
+    def _threshold(p: int) -> int:
+        """Threshold function for converting to black and white."""
+        return 255 if p > 56 else 0
+
     # Resize the image to 180x60 pixels, make it black and white.
     resized = (
-        image.convert("L")
-        .point(lambda p: 255 if p > 56 else 0, mode="1")
-        .resize(SIGNATURE_IMAGE_SIZE)
+        image.convert("L").point(_threshold, mode="1").resize(SIGNATURE_IMAGE_SIZE)
     )
 
     # Convert the image to a data: URL.
@@ -911,37 +926,39 @@ class VoterReason(px.BaseXmlModel, frozen=True):
     help the API identify the voter.
     """
 
-    previous_last_name: str | None = px.element(
+    previous_last_name: EmptyStrNone = px.element(
         "previousreglastname", default=None, max_length=30
     )
     """If the application includes a name change, the previous last name."""
 
-    previous_first_name: str | None = px.element(
+    previous_first_name: EmptyStrNone = px.element(
         "previousregfirstname", default=None, max_length=30
     )
     """If the application includes a name change, the previous first name."""
 
-    previous_middle_name: str | None = px.element(
+    previous_middle_name: EmptyStrNone = px.element(
         "previousregmiddlename", default=None, max_length=30
     )
     """If the application includes a name change, the previous middle name."""
 
-    previous_address: str | None = px.element(
+    previous_address: EmptyStrNone = px.element(
         "previousregaddress", default=None, max_length=100
     )
     """If the application includes an address change, the previous address."""
 
-    previous_city: str | None = px.element(
+    previous_city: EmptyStrNone = px.element(
         "previousregcity", default=None, max_length=30
     )
     """If the application includes an address change, the previous city."""
 
-    previous_state: str | None = px.element(
+    previous_state: EmptyStrNone = px.element(
         "previousregstate", default=None, max_length=2
     )
     """If the application includes an address change, the previous state."""
 
-    previous_zip5: str | None = px.element("previousregzip", default=None, max_length=5)
+    previous_zip5: EmptyStrNone = px.element(
+        "previousregzip", default=None, max_length=5
+    )
     """If the application includes an address change, the previous ZIP code."""
 
     previous_county: CountyChoice | None = px.element("previousregcounty", default=None)
