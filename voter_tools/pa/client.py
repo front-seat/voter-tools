@@ -961,8 +961,9 @@ class VoterReason(px.BaseXmlModel, frozen=True):
     )
     """If the application includes an address change, the previous ZIP code."""
 
-    previous_county: CountyChoice | None = px.element("previousregcounty", default=None)
-    """If the application includes an address change, the previous county."""
+    # This is now computed:
+    # previous_county: CountyChoice | None = px.element("previousregcounty", default=None)
+    # """If the application includes an address change, the previous county."""
 
     previous_year: str | None = px.element(
         "previousregyear", default=None, min_length=4, max_length=4
@@ -1002,6 +1003,29 @@ class VoterReason(px.BaseXmlModel, frozen=True):
             if any(values):
                 raise ValueError("No previous address fields should be set.")
         return self
+
+    @p.field_validator("previous_zip5", mode="after")
+    def validate_previous_zip5_has_county(cls, value: str | None) -> str | None:
+        """Ensure that the previous ZIP code has a corresponding county."""
+        if value is None:
+            return None
+        if get_county_choice(value) is None:
+            raise ValueError(f"Unknown county for previous ZIP code {value}")
+        return value
+
+    @px.computed_element(tag="previousregcounty")  # type: ignore
+    def previous_county(self) -> CountyChoice | None:
+        """Return the county for the given ZIP code."""
+        if self.previous_zip5 is None:
+            return None
+        # Annoyingly needed to convince type checkers that all is well:
+        assert self.previous_zip5 is not None
+        choice = get_county_choice(self.previous_zip5)
+        if choice is None:
+            raise ValueError(
+                f"Unknown county for previous ZIP code {self.previous_zip5}"
+            )
+        return choice
 
 
 class VoterAbout(px.BaseXmlModel, frozen=True):

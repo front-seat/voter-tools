@@ -439,8 +439,8 @@ class VoterReasonTestCase(TestCase):
                 is_address_change=True,
                 previous_address="123 Main St",
                 previous_city="Springfield",
-                previous_zip5="12345",
-                # missing county
+                # invalid non-PA zip5
+                previous_zip5="90210",
             )
         with self.assertRaises(ValueError):
             _ = c.VoterReason(
@@ -448,7 +448,6 @@ class VoterReasonTestCase(TestCase):
                 is_address_change=True,
                 previous_address="123 Main St",
                 previous_city="Springfield",
-                previous_county=c.CountyChoice.ADAMS,
                 # missing zip5
             )
         with self.assertRaises(ValueError):
@@ -456,8 +455,7 @@ class VoterReasonTestCase(TestCase):
                 registration_kind=c.RegistrationKind.CHANGE,
                 is_address_change=True,
                 previous_address="123 Main St",
-                previous_zip5="12345",
-                previous_county=c.CountyChoice.ADAMS,
+                previous_zip5="19127",
                 # missing city
             )
         with self.assertRaises(ValueError):
@@ -465,8 +463,7 @@ class VoterReasonTestCase(TestCase):
                 registration_kind=c.RegistrationKind.CHANGE,
                 is_address_change=True,
                 previous_city="Springfield",
-                previous_zip5="12345",
-                previous_county=c.CountyChoice.ADAMS,
+                previous_zip5="19127",
                 # missing address
             )
 
@@ -476,9 +473,8 @@ class VoterReasonTestCase(TestCase):
                 registration_kind=c.RegistrationKind.CHANGE,
                 is_address_change=True,
                 previous_address="123 Main St",
-                previous_city="Springfield",
-                previous_zip5="12345",
-                previous_county=c.CountyChoice.ADAMS,
+                previous_city="Philadelphia",
+                previous_zip5="19127",
             )
         except ValueError:
             self.fail()
