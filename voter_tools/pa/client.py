@@ -961,10 +961,6 @@ class VoterReason(px.BaseXmlModel, frozen=True):
     )
     """If the application includes an address change, the previous ZIP code."""
 
-    # This is now computed:
-    # previous_county: CountyChoice | None = px.element("previousregcounty", default=None)
-    # """If the application includes an address change, the previous county."""
-
     previous_year: str | None = px.element(
         "previousregyear", default=None, min_length=4, max_length=4
     )
