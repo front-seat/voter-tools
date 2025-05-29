@@ -988,7 +988,6 @@ class VoterReason(px.BaseXmlModel, frozen=True):
             self.previous_address,
             self.previous_city,
             self.previous_zip5,
-            self.previous_county,
         )
         if self.is_address_change:
             if not all(values):
